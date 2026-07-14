@@ -7,43 +7,51 @@
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
-<header>
-  <h1>real-toolbox</h1>
-  <p class="subtitle">個人／團隊開發工具啟動器</p>
+<div class="bg-glow"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">RT</span>
+    <div>
+      <h1>real-toolbox</h1>
+      <p class="subtitle">個人／團隊開發工具啟動器</p>
+    </div>
+  </div>
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-filter="all">全部</button>
+    <button class="tab" data-filter="internal">公司內部工具</button>
+    <button class="tab" data-filter="personal">個人工具</button>
+  </nav>
 </header>
 
 <main>
-  <section id="setup">
-    <h2>第一次使用？先裝 Launcher</h2>
-    <p>
-      工具連結需要靠本機的 Launcher 才能執行，第一次使用請先完成以下步驟：
-    </p>
-    <ol class="setup-steps">
-      <li>
-        下載 Launcher：
-        <a href="https://github.com/real1027/real-toolbox/releases/download/launcher-v1.0.0/real-toolbox-launcher.exe">
-          real-toolbox-launcher.exe
-        </a>
-      </li>
-      <li>雙擊執行一次（會跳出一個黑色視窗，跑完按 Enter 關閉即可）——這一步會把 <code>real-toolbox://</code> 這個連結類型註冊到你的電腦。</li>
-      <li>回到這頁，點下面任一個工具的連結，瀏覽器會問你要不要開啟 real-toolbox 連結，選「開啟」——之後同一個瀏覽器通常不會再問。</li>
-      <li>Launcher 會自動檢查版本、下載（如果需要）、然後執行工具。</li>
-    </ol>
-    <p class="tool-desc">
-      工具預設會裝在 <code>%LOCALAPPDATA%\real-toolbox</code>。想改裝到別的路徑，可以打開命令提示字元執行：<br>
-      <code>real-toolbox-launcher.exe --set-install-dir D:\你想要的路徑</code>
-    </p>
-  </section>
+  <details class="setup-card" open>
+    <summary>
+      <span class="setup-icon">⬇</span>
+      第一次使用？先安裝 Launcher
+      <span class="chevron">›</span>
+    </summary>
+    <div class="setup-body">
+      <ol class="setup-steps">
+        <li>
+          下載 Launcher：
+          <a class="setup-download" href="https://github.com/real1027/real-toolbox/releases/download/launcher-v1.0.0/real-toolbox-launcher.exe">
+            real-toolbox-launcher.exe
+          </a>
+        </li>
+        <li>雙擊執行一次（跳出黑色視窗屬正常，跑完按 <kbd>Enter</kbd> 關閉）——這一步會把 <code>real-toolbox://</code> 這個連結類型註冊到你的電腦。</li>
+        <li>回到這頁點下方任一工具的「啟動」，瀏覽器會詢問是否開啟 real-toolbox 連結，選「開啟」即可，通常之後不會再問。</li>
+        <li>Launcher 會自動檢查版本、下載（如有需要）、然後執行工具。</li>
+      </ol>
+      <p class="setup-note">
+        工具預設安裝在 <code>%LOCALAPPDATA%\real-toolbox</code>。想改路徑可執行：
+        <code>real-toolbox-launcher.exe --set-install-dir D:\你想要的路徑</code>
+      </p>
+    </div>
+  </details>
 
-  <section id="internal">
-    <h2>公司內部工具</h2>
-    <ul class="tool-list" id="internal-list"></ul>
-  </section>
-
-  <section id="personal">
-    <h2>個人工具</h2>
-    <ul class="tool-list" id="personal-list"></ul>
-  </section>
+  <section class="grid" id="tool-grid" aria-live="polite"></section>
+  <p class="empty-state" id="empty-state" hidden>目前這個分類還沒有工具。</p>
 </main>
 
 <script src="assets/app.js"></script>
