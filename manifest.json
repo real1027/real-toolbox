@@ -3,7 +3,7 @@
     {
       "id": "sfisemulator_arcadyan",
       "name": "SFIS Emulator",
-      "icon": "repeat",
+      "icon": "database",
       "description": "Python 版 SFIS 檔案交換模擬器，透過 REQUEST/RESPONSE/RESULT/FEEDBACK 資料夾與產測程式交握，並用 SFIS_DB.csv 模擬 SFIS response。",
       "latest_version": "1.3.1",
       "download_url": "http://10.118.53.32/tools/sfisemulator_arcadyan/-/releases/permalink/latest/downloads/sfisemulator_arcadyan.zip",
@@ -53,6 +53,26 @@
       "status": "coming_soon",
       "type": "link",
       "url": ""
+    },
+    {
+      "id": "auto_pathloss_generator",
+      "name": "Auto Pathloss Generator",
+      "icon": "radio",
+      "description": "自動產出 RF 測試使用的 cable loss 產生器。",
+      "status": "coming_soon",
+      "latest_version": "",
+      "download_url": "",
+      "exe_name": ""
+    },
+    {
+      "id": "erp_coc_test_tool",
+      "name": "ErP/CoC 測試工具",
+      "icon": "clipboard-check",
+      "description": "協助認證部門產生 ErP/CoC 相關測試報告。",
+      "status": "coming_soon",
+      "latest_version": "",
+      "download_url": "",
+      "exe_name": ""
     }
   ]
 }
