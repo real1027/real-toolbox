@@ -91,6 +91,18 @@ def load_state():
     return {}
 
 
+def installed_record(state, tool_id):
+    """Normalizes installed.json entries to {"version", "fingerprint"} -
+    older installs recorded just a plain version string, which reads back
+    as {"version": <that string>, "fingerprint": None} (no fingerprint on
+    record yet, so the first launch after upgrading the Launcher will
+    backfill it via one extra download)."""
+    entry = state.get(tool_id)
+    if isinstance(entry, dict):
+        return entry
+    return {"version": entry, "fingerprint": None}
+
+
 def save_state(state):
     APP_DIR.mkdir(parents=True, exist_ok=True)
     STATE_FILE.write_text(json.dumps(state, indent=2), encoding="utf-8")
@@ -234,6 +246,29 @@ def resolve_live_version(download_url):
     return tag or None
 
 
+def fetch_download_fingerprint(download_url, timeout=8):
+    """Best-effort HEAD request against the actual download URL to catch a
+    tool author re-uploading a new zip without bumping the version tag - the
+    version-number check alone would miss that. Combines ETag (when the host
+    provides one, e.g. GitLab's raw-file serving) and Content-Length (always
+    present, e.g. the GitLab generic package registry doesn't set an ETag but
+    does set a length) into a single fingerprint string. Returns None if
+    neither header is available or the request fails, in which case the
+    caller should fall back to version-only comparison rather than treating
+    "no fingerprint" as "changed" (would force a re-download every launch on
+    any host that doesn't support HEAD)."""
+    try:
+        req = urllib.request.Request(download_url, method="HEAD")
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            etag = resp.getheader("ETag")
+            length = resp.getheader("Content-Length")
+    except OSError:
+        return None
+    if not etag and not length:
+        return None
+    return f"{etag or ''}|{length or ''}"
+
+
 def acquire_launch_lock(key):
     """Guard against a user mashing the launch button while a slow
     download/extract is still running - a second invocation within
@@ -270,10 +305,14 @@ def launch(tool_id, sub_id=None):
         raise SystemExit(f"'{tool['name']}' 還沒上架，敬請期待。")
     exe_name = resolve_exe_name(tool, sub_id)
     version = resolve_live_version(tool.get("download_url", "")) or tool["latest_version"]
+    fingerprint = fetch_download_fingerprint(tool.get("download_url", ""))
     state = load_state()
+    record = installed_record(state, tool_id)
 
     version_dir = TOOLS_DIR / tool_id / version
-    needs_download = state.get(tool_id) != version or not version_dir.exists()
+    version_changed = record["version"] != version
+    fingerprint_changed = fingerprint is not None and record.get("fingerprint") != fingerprint
+    needs_download = version_changed or fingerprint_changed or not version_dir.exists()
 
     if needs_download:
         progress = make_progress_window(tool["name"])
@@ -282,7 +321,7 @@ def launch(tool_id, sub_id=None):
             if tool_dir.exists():
                 shutil.rmtree(tool_dir, ignore_errors=True)
             download_and_extract(tool, version_dir, progress=progress)
-            state[tool_id] = version
+            state[tool_id] = {"version": version, "fingerprint": fingerprint}
             save_state(state)
         finally:
             progress.close()

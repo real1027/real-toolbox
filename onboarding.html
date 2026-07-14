@@ -171,6 +171,9 @@ Launcher 解壓後，會在整個解壓出來的資料夾底下<strong>遞迴搜
 <p class="setup-note">
 （這個自動判斷機制只認得「GitLab Release permalink」這種下載連結格式。如果你的下載連結不是這個格式，Launcher 會退回去讀 <code>manifest.json</code> 裡寫的版本號，這種情況下發新版還是要麻煩通知維護者更新。）
 </p>
+<p>
+另外 Launcher 也會順便檢查下載連結的 ETag／檔案大小有沒有變——所以就算你不小心「內容換了但忘記打新 tag」，Launcher 還是會抓到差異、自動重新下載，不會一直卡在舊版本。當然還是建議每次異動都老實打新版號，這只是多一層保險。
+</p>
 
 <h2>上架前檢查清單</h2>
 <ul>
