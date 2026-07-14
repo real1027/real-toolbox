@@ -18,8 +18,11 @@ import winreg
 import zipfile
 from pathlib import Path
 
-DEFAULT_APP_DIR = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "real-toolbox"
-CONFIG_FILE = DEFAULT_APP_DIR / "config.json"
+# Config always lives under the per-user profile (guaranteed to exist and be
+# writable) so it can redirect DEFAULT_APP_DIR even when that path's drive
+# isn't available on a given machine.
+CONFIG_FILE = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "real-toolbox" / "config.json"
+DEFAULT_APP_DIR = Path(r"D:\___ARC_MT_TOOLS___")
 
 
 def resolve_app_dir():
