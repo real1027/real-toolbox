@@ -14,11 +14,12 @@
     <span class="brand-mark">MT</span>
     <div>
       <h1>MT Toolbox</h1>
-      <p class="subtitle">產測內部工具啟動器</p>
+      <p class="subtitle">產測開發工具啟動器</p>
     </div>
   </div>
   <div class="topbar-right">
     <button class="setup-reopen-link" id="setup-reopen" hidden>安裝說明</button>
+    <a class="setup-reopen-link" href="onboarding.html" target="_blank" rel="noopener">工具上架說明</a>
     <div class="signature">
       <img src="assets/mascot.png" alt="" class="mascot" />
       <span class="signature-tag">real_chang#14650</span>
@@ -41,13 +42,16 @@
             real-toolbox-launcher.exe
           </a>
         </li>
-        <li>雙擊執行一次（跳出黑色視窗屬正常，跑完按 <kbd>Enter</kbd> 關閉）——這一步會把 <code>real-toolbox://</code> 這個連結類型註冊到你的電腦。</li>
+        <li>雙擊執行一次，跳出「設定完成」的小提示視窗後按確定——這一步會把 <code>real-toolbox://</code> 這個連結類型註冊到你的電腦。</li>
         <li>回到這頁點下方任一工具的「啟動」，瀏覽器會詢問是否開啟 real-toolbox 連結，選「開啟」即可，通常之後不會再問。</li>
-        <li>Launcher 會自動檢查版本、下載（如有需要）、然後執行工具。</li>
+        <li>Launcher 會自動檢查版本、下載（如有需要）、然後執行工具。第一次下載某個工具時會跳出一個小視窗顯示進度，之後同版本再啟動就不會再出現。</li>
       </ol>
       <p class="setup-note">
         工具預設安裝在 <code>D:\___ARC_MT_TOOLS___</code>。想改路徑可執行：
         <code>real-toolbox-launcher.exe --set-install-dir D:\你想要的路徑</code>
+      </p>
+      <p class="setup-note">
+        第一次執行全新的 Launcher 或全新下載的工具時，防毒軟體可能會先掃描檔案，感覺上會多等幾秒鐘，這是正常現象，不代表沒有啟動成功；同一個檔案之後再啟動就不會再等。
       </p>
       <button class="dismiss-setup-btn" id="dismiss-setup">✓ 已完成安裝，不再顯示</button>
     </div>

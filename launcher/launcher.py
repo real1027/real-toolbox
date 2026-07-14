@@ -5,8 +5,13 @@ real-toolbox://launch/<tool-id>, looks up <tool-id> in manifest.json,
 downloads/extracts the tool if the local copy is missing or outdated,
 then runs its exe. Contains no per-tool logic - everything comes from
 the manifest.
+
+Runs windowless (no console flash). Feedback for --register/--set-install-dir
+and for errors is a native message box instead of console output, since
+there's no console to print to.
 """
 
+import ctypes
 import http.client
 import json
 import os
@@ -15,11 +20,33 @@ import shutil
 import subprocess
 import sys
 import time
+import traceback
 import urllib.parse
 import urllib.request
 import winreg
 import zipfile
 from pathlib import Path
+
+MB_ICONINFORMATION = 0x40
+MB_ICONERROR = 0x10
+
+# Crash-diagnostic log only (not a running trace) - there's no console to see
+# a traceback on, so unexpected failures get appended here in addition to the
+# message box, in case someone needs to debug a remote machine after the fact.
+DEBUG_LOG = Path(os.environ.get("TEMP", str(Path.home()))) / "real-toolbox-debug.log"
+
+
+def dbg(msg):
+    try:
+        with open(DEBUG_LOG, "a", encoding="utf-8") as f:
+            f.write(f"{time.time():.3f} {msg}\n")
+    except OSError:
+        pass
+
+
+def show_message(text, icon=MB_ICONINFORMATION, title="MT Toolbox Launcher"):
+    ctypes.windll.user32.MessageBoxW(0, text, title, icon)
+
 
 # Config always lives under the per-user profile (guaranteed to exist and be
 # writable) so it can redirect DEFAULT_APP_DIR even when that path's drive
@@ -73,13 +100,89 @@ def find_tool(manifest, tool_id):
     for tool in manifest.get("tools", []):
         if tool["id"] == tool_id:
             return tool
-    raise SystemExit(f"Tool '{tool_id}' not found in manifest")
+    raise SystemExit(f"在工具清單裡找不到 '{tool_id}'")
 
 
-def download_and_extract(tool, version_dir):
+class ProgressWindow:
+    """Small always-on-top window shown only while an actual download/extract
+    is happening (a cold install or a version bump) - the common case of
+    "already installed, just launch" never creates this window at all."""
+
+    def __init__(self, tool_name):
+        import tkinter as tk
+        from tkinter import ttk
+
+        self.tk = tk
+        self.root = tk.Tk()
+        self.root.title("MT Toolbox")
+        width, height = 360, 120
+        screen_w = self.root.winfo_screenwidth()
+        screen_h = self.root.winfo_screenheight()
+        x = (screen_w - width) // 2
+        y = (screen_h - height) // 2
+        self.root.geometry(f"{width}x{height}+{x}+{y}")
+        self.root.resizable(False, False)
+        self.root.attributes("-topmost", True)
+
+        self.label = tk.Label(self.root, text=f"正在準備 {tool_name} ...", pady=12, font=("Segoe UI", 10))
+        self.label.pack()
+
+        self.progress = ttk.Progressbar(self.root, orient="horizontal", length=300, mode="indeterminate")
+        self.progress.pack(pady=6)
+        self.progress.start(12)
+
+        self.root.update()
+
+    def set_status(self, text):
+        self.label.config(text=text)
+        self.root.update()
+
+    def pump(self):
+        self.root.update()
+
+    def close(self):
+        self.progress.stop()
+        self.root.destroy()
+
+
+class NullProgress:
+    """No-op stand-in used when the progress window itself can't be created
+    (e.g. some restricted/remote desktop sessions) - downloads should still
+    proceed silently rather than the whole launch failing over a UI nicety."""
+
+    def set_status(self, text):
+        pass
+
+    def pump(self):
+        pass
+
+    def close(self):
+        pass
+
+
+def make_progress_window(tool_name):
+    try:
+        return ProgressWindow(tool_name)
+    except Exception:
+        dbg(f"ProgressWindow failed:\n{traceback.format_exc()}")
+        return NullProgress()
+
+
+def download_and_extract(tool, version_dir, progress=None):
     version_dir.parent.mkdir(parents=True, exist_ok=True)
     zip_path = version_dir.parent / f"{tool['id']}.zip"
-    urllib.request.urlretrieve(tool["download_url"], zip_path)
+
+    def report(block_num, block_size, total_size):
+        if progress:
+            progress.pump()
+
+    if progress:
+        progress.set_status(f"正在下載 {tool['name']} ...")
+    urllib.request.urlretrieve(tool["download_url"], zip_path, reporthook=report)
+
+    if progress:
+        progress.set_status(f"正在解壓 {tool['name']} ...")
+        progress.pump()
     with zipfile.ZipFile(zip_path, "r") as zf:
         zf.extractall(version_dir)
     zip_path.unlink(missing_ok=True)
@@ -88,7 +191,7 @@ def download_and_extract(tool, version_dir):
 def find_exe(root_dir, exe_name):
     for path in root_dir.rglob(exe_name):
         return path
-    raise SystemExit(f"{exe_name} not found under {root_dir} after extraction")
+    raise SystemExit(f"解壓後找不到 {exe_name}（資料夾：{root_dir}）")
 
 
 PERMALINK_MARKER = "/-/releases/permalink/latest/downloads/"
@@ -157,26 +260,32 @@ def resolve_exe_name(tool, sub_id):
     for sub in tool.get("sub_tools", []):
         if sub["id"] == sub_id:
             return sub["exe_name"]
-    raise SystemExit(f"Sub-tool '{sub_id}' not found under '{tool['id']}'")
+    raise SystemExit(f"在 '{tool['id']}' 裡找不到子程式 '{sub_id}'")
 
 
 def launch(tool_id, sub_id=None):
     manifest = load_manifest(MANIFEST_URL)
     tool = find_tool(manifest, tool_id)
     if tool.get("status") == "coming_soon":
-        raise SystemExit(f"'{tool_id}' is not available yet")
+        raise SystemExit(f"'{tool['name']}' 還沒上架，敬請期待。")
     exe_name = resolve_exe_name(tool, sub_id)
     version = resolve_live_version(tool.get("download_url", "")) or tool["latest_version"]
     state = load_state()
 
     version_dir = TOOLS_DIR / tool_id / version
-    if state.get(tool_id) != version or not version_dir.exists():
-        tool_dir = TOOLS_DIR / tool_id
-        if tool_dir.exists():
-            shutil.rmtree(tool_dir, ignore_errors=True)
-        download_and_extract(tool, version_dir)
-        state[tool_id] = version
-        save_state(state)
+    needs_download = state.get(tool_id) != version or not version_dir.exists()
+
+    if needs_download:
+        progress = make_progress_window(tool["name"])
+        try:
+            tool_dir = TOOLS_DIR / tool_id
+            if tool_dir.exists():
+                shutil.rmtree(tool_dir, ignore_errors=True)
+            download_and_extract(tool, version_dir, progress=progress)
+            state[tool_id] = version
+            save_state(state)
+        finally:
+            progress.close()
 
     exe_path = find_exe(version_dir, exe_name)
     subprocess.Popen([str(exe_path)], cwd=str(exe_path.parent))
@@ -185,7 +294,7 @@ def launch(tool_id, sub_id=None):
 def parse_launch_path(uri):
     match = re.match(r"real-toolbox://launch/([^/?#]+)(?:/([^/?#]+))?", uri)
     if not match:
-        raise SystemExit(f"Invalid real-toolbox URI: {uri}")
+        raise SystemExit(f"不是合法的 real-toolbox 連結：{uri}")
     return match.group(1), match.group(2)
 
 
@@ -200,8 +309,10 @@ def set_install_dir(path):
             cfg = {}
     cfg["install_dir"] = resolved
     CONFIG_FILE.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
-    print(f"安裝路徑已設定為: {resolved}")
-    print("（下次啟動工具時，會安裝到這個路徑；已下載的舊工具不會自動搬移。）")
+    show_message(
+        f"安裝路徑已設定為：\n{resolved}\n\n"
+        "下次啟動工具時會安裝到這個路徑；已下載的舊工具不會自動搬移。"
+    )
 
 
 def register_protocol():
@@ -216,31 +327,40 @@ def register_protocol():
         winreg.SetValueEx(key, "URL Protocol", 0, winreg.REG_SZ, "")
     with winreg.CreateKey(winreg.HKEY_CURRENT_USER, key_path + r"\shell\open\command") as key:
         winreg.SetValueEx(key, "", 0, winreg.REG_SZ, command)
-    print(f"Registered real-toolbox:// -> {command}")
+    show_message("設定完成！之後在 MT Toolbox 網頁上點擊工具連結就會自動啟動。")
 
 
-def main():
+def dispatch():
     if len(sys.argv) >= 3 and sys.argv[1] == "--set-install-dir":
         set_install_dir(sys.argv[2])
-        input("按 Enter 鍵關閉視窗...")
         return
 
     if len(sys.argv) < 2 or sys.argv[1] == "--register":
         register_protocol()
-        print("\n設定完成！之後在 real-toolbox 網頁上點擊工具連結就會自動啟動。")
-        input("按 Enter 鍵關閉視窗...")
         return
 
     tool_id, sub_id = parse_launch_path(sys.argv[1])
     lock_key = tool_id if sub_id is None else f"{tool_id}__{sub_id}"
     lock_file = acquire_launch_lock(lock_key)
     if lock_file is None:
-        print(f"'{lock_key}' 已經在啟動中，請稍候，不用重複點擊。")
+        # Another invocation for the same tool is already mid-flight (e.g. the
+        # user double-clicked the launch button); back off silently instead of
+        # racing it or popping up a redundant message box.
         return
     try:
         launch(tool_id, sub_id)
     finally:
         release_launch_lock(lock_file)
+
+
+def main():
+    try:
+        dispatch()
+    except SystemExit as e:
+        show_message(str(e), icon=MB_ICONERROR)
+    except Exception:
+        dbg(f"unhandled exception:\n{traceback.format_exc()}")
+        show_message(f"發生未預期的錯誤：\n\n{traceback.format_exc()}", icon=MB_ICONERROR)
 
 
 if __name__ == "__main__":

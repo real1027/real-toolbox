@@ -113,7 +113,12 @@ function hideMascotIfMissing() {
   mascot.addEventListener('error', () => { mascot.hidden = true; });
 }
 
-const LAUNCH_FEEDBACK_TIMEOUT_MS = 6000;
+// Generous timeout: first-ever run of a freshly built exe (Launcher itself,
+// or a newly downloaded tool) commonly gets held up several seconds by
+// Windows Defender/antivirus scanning before anything visible happens - a
+// short timeout would revert the button while that's still legitimately
+// in progress.
+const LAUNCH_FEEDBACK_TIMEOUT_MS = 15000;
 
 // real-toolbox:// links give the page no callback at all - the OS either
 // hands off to the Launcher or shows its own "open app?" prompt, and either

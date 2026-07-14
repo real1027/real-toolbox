@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>工具上架說明 — MT Toolbox</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="bg-glow"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">MT</span>
+    <div>
+      <h1>工具上架說明</h1>
+      <p class="subtitle">把你的工具接進 MT Toolbox</p>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <a class="setup-reopen-link" href="index.html">← 回到工具清單</a>
+  </div>
+</header>
+
+<main class="prose">
+
+<p>這份文件是給「想把自己的工具放上 MT Toolbox」的人看的。整套流程設計成<strong>不需要改你的工具本身</strong>，Launcher 也不會有任何針對特定工具寫死的邏輯——你只要照著下面的步驟，把 GitLab 準備好、把資訊交給維護者就完成了。</p>
+
+<h2>整體流程一覽</h2>
+<ol>
+  <li>把你的工具 repo 設成 <strong>Public</strong>（或搬到一個新的 public 專案）</li>
+  <li>把 build 好的東西打包成一個 <strong>zip</strong></li>
+  <li>在 GitLab 建立 <strong>Release</strong>，把 zip 當附件上傳，用 <strong>permalink</strong> 網址</li>
+  <li>驗證這個 permalink 網址不用登入就能下載</li>
+  <li>把必要欄位交給 MT Toolbox 維護者，等對方加進 <code>manifest.json</code></li>
+  <li>之後每次發新版，只要照常發 Release 就好——<strong>版本號會自動更新，不用再通知任何人</strong></li>
+</ol>
+
+<h2>Step 1：Repo 要能匿名下載</h2>
+<p>
+Launcher 是在使用者電腦上執行的小程式，它下載你的工具時<strong>不會、也不能幫你登入</strong>。所以你的工具 repo 必須設成 Public，Launcher 才抓得到檔案。
+</p>
+<p>
+如果你的工具目前放在需要登入的私有專案（例如公司內部的開發用 repo）底下，不用把整個私有專案公開，做法是：<strong>另外開一個獨立的 public 專案</strong>專門放 Release 附件，例如 <code>http://10.118.53.32/tools/&lt;your-project&gt;</code>，跟你私有的開發用 repo 分開。開發還是在私有 repo 進行，只有要發布的 Release 才放到這個 public 專案。
+</p>
+
+<h2>Step 2：把 build 好的東西打包成一個 zip</h2>
+<p>一個 zip 裡面要包含：</p>
+<ul>
+  <li>主程式 exe（可以不只一個，見下方「多個進入點」小節）</li>
+  <li>執行時需要的所有依賴檔案：設定檔（<code>.ini</code>）、資料庫/資料檔（<code>.csv</code> 等）、圖片、DLL 等</li>
+</ul>
+<p>不需要包含：原始碼、build 工具本身（例如 PyInstaller 產生的中間檔）。</p>
+<p>
+Launcher 解壓後，會在整個解壓出來的資料夾底下<strong>遞迴搜尋</strong>你告訴它的 exe 檔名，所以 zip 裡面要不要包資料夾、要包幾層都沒關係，只要：
+</p>
+<ul>
+  <li>你提供給維護者的 exe 檔名跟 zip 裡實際的檔名完全一致（含副檔名、大小寫盡量一致）</li>
+  <li>同一個 zip 裡不要有兩個同名的 exe（不同資料夾也不行），不然 Launcher 會抓到不確定是哪一個</li>
+</ul>
+
+<h2>Step 3：建立 GitLab Release，並使用「永久連結」</h2>
+<ol>
+  <li>打一個 tag，例如 <code>v1.0.0</code>（建議照 <a href="https://semver.org/lang/zh-TW/" target="_blank" rel="noopener">SemVer</a> 規則：破壞性變更升 MAJOR、加功能升 MINOR、修 bug 升 PATCH）</li>
+  <li>在這個 tag 上建立一個 GitLab Release</li>
+  <li>把打包好的 zip 當作 Release 的附件上傳</li>
+  <li>
+    之後所有人（包含 Launcher）都要用這個<strong>永久連結</strong>網址去下載，而不是某個特定版本的連結：
+    <pre><code>http://10.118.53.32/tools/&lt;your-project&gt;/-/releases/permalink/latest/downloads/&lt;你的zip檔名.zip&gt;</code></pre>
+    這個網址的意思是「這個專案最新一個 Release 的這個附件」，所以你以後每次發新版，只要照常打新 tag、建新 Release、上傳同名的 zip，這個網址完全不用改，永遠自動指向最新版。
+  </li>
+</ol>
+
+<h2>Step 4：驗證匿名下載（很重要，不要跳過）</h2>
+<p>
+找一台<strong>沒登入</strong>的瀏覽器（或直接開無痕視窗）貼上你的 permalink 網址，確認：
+</p>
+<ul>
+  <li>不會被導去登入頁（<code>/users/sign_in</code>）</li>
+  <li>可以直接觸發下載，或至少回應 200</li>
+</ul>
+<p>如果你有終端機，也可以直接測試（<code>-L</code> 會跟著轉址）：</p>
+<pre><code>curl -sL -o /dev/null -w "%{http_code}\n" "你的permalink網址"</code></pre>
+<p>看到 <code>200</code> 才算過關。如果看到 <code>302</code> 或被導到登入頁，代表這個專案還不是 Public，或路徑打錯了——這一步沒測過，Launcher 到使用者端一定會下載失敗。</p>
+
+<h2>Step 5：把這些資訊交給 MT Toolbox 維護者</h2>
+<table>
+<thead><tr><th>欄位</th><th>說明</th><th>範例</th></tr></thead>
+<tbody>
+<tr><td><code>id</code></td><td>工具的唯一代號，只能用英數字和底線，之後會出現在啟動連結裡</td><td><code>sfisemulator_arcadyan</code></td></tr>
+<tr><td>顯示名稱</td><td>畫面上要顯示的名稱</td><td>SFIS Emulator</td></tr>
+<tr><td>簡短描述</td><td>一兩句話說明工具做什麼；可以直接給 README 內容，維護者會幫忙摘要</td><td>—</td></tr>
+<tr><td>版本號</td><td>對應你目前的 release tag 就好（例如 <code>1.0.0</code>）；這個欄位只影響網頁上顯示的版本字樣，之後會過時也沒關係，見下方說明</td><td>1.0.0</td></tr>
+<tr><td>下載連結</td><td>Step 3 做出來的 permalink 網址</td><td>—</td></tr>
+<tr><td>exe 檔名</td><td>zip 解壓後真正要執行的檔案名稱</td><td><code>SfisSimulator.exe</code></td></tr>
+<tr><td>圖示（選填）</td><td>想要的話可以從下面的圖示清單挑一個；不指定就用工具名稱前兩個字當預設圖示</td><td><code>database</code></td></tr>
+</tbody>
+</table>
+
+<h3>目前可用的圖示</h3>
+<p>圖示來自 <a href="https://lucide.dev" target="_blank" rel="noopener">Lucide</a>（開源、ISC 授權）。目前系統裡已經有這些可以直接用：</p>
+<ul>
+  <li><code>camera</code> — 相機／影像相關</li>
+  <li><code>database</code> — 資料庫／模擬資料</li>
+  <li><code>file-diff</code> — 比對／差異</li>
+  <li><code>radio</code> — RF／無線訊號</li>
+  <li><code>clipboard-check</code> — 報告／檢查清單／認證</li>
+  <li><code>box</code> — 一般設備／打包</li>
+  <li><code>wrench</code> — 維修／工具</li>
+</ul>
+<p>想要清單以外的圖示也可以，跟維護者說一聲，只要 Lucide 官網上找得到的 icon 都能加。</p>
+
+<h3>如果你的工具有多個進入點（例如一套工具裡有好幾支獨立的 exe）</h3>
+<p>不用拆成好幾個工具、好幾份 zip。一份 zip、一個版本號、一個下載連結就好，只要額外告訴維護者每個子程式的：</p>
+<ul>
+  <li>子程式代號（例如 <code>cam</code>）</li>
+  <li>顯示名稱（例如「CAM 相機能力偵測」）</li>
+  <li>對應的 exe 檔名（例如 <code>CAM.exe</code>）</li>
+</ul>
+<p>畫面上會變成同一張卡片裡有好幾顆啟動按鈕，各自對應一支 exe，共用同一個版本號跟下載連結。</p>
+
+<h3>如果你要放的其實只是一個外部網址（不是可執行的工具）</h3>
+<p>例如某個內部系統的網頁入口，不需要 zip、不需要 exe，只要給維護者那個網址就好。畫面上會顯示成「前往」按鈕，直接開新分頁連過去，完全不會透過 Launcher。</p>
+
+<h2>manifest.json 範例</h2>
+<p>維護者實際會把你的資料寫成類似這樣的一筆（你不用自己動手改這個檔案，這裡列出來只是讓你知道你提供的資訊最後會變成什麼樣子）：</p>
+
+<p><strong>一般單一 exe 工具：</strong></p>
+<pre><code>{
+  "id": "sfisemulator_arcadyan",
+  "name": "SFIS Emulator",
+  "icon": "database",
+  "description": "Python 版 SFIS 檔案交換模擬器...",
+  "latest_version": "1.3.1",
+  "download_url": "http://10.118.53.32/tools/sfisemulator_arcadyan/-/releases/permalink/latest/downloads/sfisemulator_arcadyan.zip",
+  "exe_name": "SfisSimulator.exe"
+}</code></pre>
+
+<p><strong>多個進入點的工具：</strong></p>
+<pre><code>{
+  "id": "ledtool_arcadyan",
+  "name": "LED AOI",
+  "icon": "camera",
+  "description": "LED 自動光學檢測工具...",
+  "latest_version": "1.0.0",
+  "download_url": ".../-/releases/permalink/latest/downloads/ledtool.zip",
+  "sub_tools": [
+    { "id": "cam", "name": "CAM 相機能力偵測", "exe_name": "CAM.exe" },
+    { "id": "roi", "name": "ROI 框選", "exe_name": "ROI.exe" },
+    { "id": "led", "name": "LED 燈號偵測", "exe_name": "LED.exe" }
+  ]
+}</code></pre>
+
+<p><strong>純外部連結：</strong></p>
+<pre><code>{
+  "id": "instrument_rental_system",
+  "name": "儀器設備租借系統",
+  "icon": "box",
+  "description": "儀器設備租借申請入口。",
+  "type": "link",
+  "url": "http://your-internal-system/..."
+}</code></pre>
+
+<h2>之後每次發新版，要做什麼？</h2>
+<p>
+只要照常打新 tag、建新 Release、上傳新 zip（permalink 網址不用變）就好。<strong>不需要再通知維護者更新 manifest.json。</strong>
+</p>
+<p>
+原理：Launcher 每次啟動你的工具前，不是看 <code>manifest.json</code> 裡寫死的版本號，而是直接去問你的 Release permalink「你現在實際指到哪一個 tag」，有新版就自動抓新的下來、換掉舊的再執行。<code>manifest.json</code> 裡的版本號只影響網頁卡片上顯示的字樣，就算過時了也不影響使用者實際抓到、跑到的一定是最新版。
+</p>
+<p class="setup-note">
+（這個自動判斷機制只認得「GitLab Release permalink」這種下載連結格式。如果你的下載連結不是這個格式，Launcher 會退回去讀 <code>manifest.json</code> 裡寫的版本號，這種情況下發新版還是要麻煩通知維護者更新。）
+</p>
+
+<h2>上架前檢查清單</h2>
+<ul>
+  <li>☐ Repo（或另外開的 public 專案）設成 Public 了嗎？</li>
+  <li>☐ zip 裡的 exe 檔名跟你要提供的 <code>exe_name</code> 完全一致嗎？</li>
+  <li>☐ zip 裡有沒有依賴檔案漏包（ini／csv／DLL／圖片）？</li>
+  <li>☐ 用沒登入的瀏覽器或 <code>curl</code> 測過 permalink 網址，回應是 200 嗎？</li>
+  <li>☐ exe 可以在乾淨的資料夾（沒有你開發機上其他殘留檔案）直接執行嗎？</li>
+</ul>
+
+<h2>有問題怎麼辦？</h2>
+<p>照著上面步驟卡關、或不確定怎麼設定 GitLab Release，直接找 MT Toolbox 維護者（<code>real_chang</code>）就好。</p>
+
+</main>
+
+</body>
+</html>
