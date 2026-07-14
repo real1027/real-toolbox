@@ -406,15 +406,16 @@ code {
 
 .sub-tool-buttons {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  flex-direction: column;
   gap: 0.4rem;
   width: 100%;
 }
 
 .sub-tool-buttons .launch-btn {
   font-size: 0.78rem;
-  padding: 0.35rem 0.65rem;
+  padding: 0.4rem 0.65rem;
+  width: 100%;
+  justify-content: center;
 }
 
 .coming-soon-tag {

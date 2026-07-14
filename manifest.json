@@ -19,7 +19,7 @@
       "sub_tools": [
         {
           "id": "cam",
-          "name": "CAM 相機能力偵測",
+          "name": "CAM 相機偵測",
           "exe_name": "CAM.exe"
         },
         {
