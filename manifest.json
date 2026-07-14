@@ -45,6 +45,14 @@
       "exe_name": ""
     },
     {
+      "id": "error_code_search_system",
+      "name": "Error Code 查詢系統",
+      "icon": "search",
+      "description": "產測 Error Code 查詢系統：關鍵字搜尋、AI 自然語言查詢、分類瀏覽，支援中/英/越文介面，並可新增、修改、刪除 Error Code 資料。",
+      "type": "link",
+      "url": "https://lobbster1234-error-code-search.hf.space/"
+    },
+    {
       "id": "instrument_rental_system",
       "name": "儀器設備租借系統",
       "icon": "box",
