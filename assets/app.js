@@ -119,7 +119,7 @@ function hideMascotIfMissing() {
 // Windows Defender/antivirus scanning before anything visible happens - a
 // short timeout would revert the button while that's still legitimately
 // in progress.
-const LAUNCH_FEEDBACK_TIMEOUT_MS = 15000;
+const LAUNCH_FEEDBACK_TIMEOUT_MS = 60000;
 
 // real-toolbox:// links give the page no callback at all - the OS either
 // hands off to the Launcher or shows its own "open app?" prompt, and either
