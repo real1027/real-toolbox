@@ -1,3 +1,9 @@
+/* Light theme with an apple-green accent (chosen deliberately over the
+   dark Steam/Epic-launcher-style theme this page originally shipped with -
+   the dark version was fully built and screenshotted before being replaced
+   by this one on request). Shared by index.html and onboarding.html - this
+   is the only stylesheet on the whole site, so any change here affects
+   both pages. */
 :root {
   --bg: #f6faf1;
   --bg-alt: #ecf5e3;
@@ -14,6 +20,12 @@
 
 * { box-sizing: border-box; }
 
+/* Browsers do NOT make <button> inherit font-family from the page by
+   default - form controls get the OS/browser's own UI font unless told
+   otherwise. Without this reset, the "工具啟動教學" reopen <button> and the
+   "工具上架說明" <a> right next to it (both share the .setup-reopen-link
+   class and are meant to look identical) would visibly render in two
+   different typefaces even though every other property matches. */
 button {
   font-family: inherit;
 }
@@ -126,6 +138,12 @@ main {
   padding: 1.5rem clamp(1rem, 4vw, 3rem) 4rem;
 }
 
+/* Everything under .prose is typographic styling for long-form article
+   content - specifically onboarding.html (the "工具上架說明" page), which
+   uses headings/lists/tables/code blocks that index.html's card-grid layout
+   never needs. Narrower max-width than the card grid's <main> (760px vs
+   1100px) because long paragraphs of Chinese/English prose read better at
+   a narrower measure than a grid of cards does. */
 main.prose {
   max-width: 760px;
   line-height: 1.7;
@@ -389,6 +407,11 @@ code {
 
 .launch-btn:hover { background: var(--accent-hover); }
 
+/* Used for a "coming_soon" tool's button, which is a <span> in the markup
+   (see app.js's footerContent), not a real <a href> - there is nothing to
+   link to yet. pointer-events: none isn't strictly required here (a <span>
+   has no default click behavior anyway) but is kept for consistency with
+   .is-loading below and as a defensive no-op. */
 .launch-btn.is-disabled {
   background: var(--bg-alt);
   color: var(--muted);
@@ -396,6 +419,12 @@ code {
   pointer-events: none;
 }
 
+/* Applied by app.js's wireLaunchFeedback while a real launch link is showing
+   "啟動中…". `pointer-events: none` is what ACTUALLY prevents a user from
+   re-clicking the button while it's in this state - there is no separate
+   JavaScript-side click-guard; the browser itself simply stops delivering
+   click events to an element styled this way. The pulsing opacity animation
+   is purely a visual "something is happening" cue. */
 .launch-btn.is-loading {
   background: var(--accent-hover);
   pointer-events: none;
@@ -408,6 +437,16 @@ code {
   50% { opacity: 0.6; }
 }
 
+/* One button per sub-tool (e.g. LED AOI's CAM/ROI/LED), stacked in a single
+   column with every button stretched to the same width - deliberately NOT
+   a wrapping row of variable-width buttons, which looked uneven and could
+   wrap awkwardly depending on card width and label length. Because this
+   element is width: 100% and .card-footer (its flex-row parent, ordered
+   after the version-tag span in the markup - see app.js's footerContent)
+   has flex-wrap: wrap, this element can never fit next to the version tag
+   on the same line and always wraps onto its own full-width row below it -
+   that's what produces "version number on top, full-width button column
+   below" with no extra layout code needed. */
 .sub-tool-buttons {
   display: flex;
   flex-direction: column;

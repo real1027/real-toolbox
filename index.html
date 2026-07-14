@@ -1,4 +1,19 @@
 <!doctype html>
+<!--
+  MT Toolbox entry page (repo/protocol name: real-toolbox).
+
+  This is a fully static page - no build step, no framework, no server-side
+  code. It is deployed as-is to GitHub Pages from the repo's main branch.
+  All the actual interactive behavior (rendering the tool cards from
+  manifest.json, the setup-card show/hide logic, the launch-button feedback)
+  lives in assets/app.js; this file is just the fixed shell/skeleton that
+  app.js populates and manipulates at load time.
+
+  See assets/app.js's top-of-file comment for the full picture of how a
+  click on a tool's "啟動" button actually results in a program running on
+  the user's machine, and launcher/launcher.py's module docstring for the
+  Launcher side of that handshake.
+-->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -7,6 +22,8 @@
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
+<!-- Fixed full-page background gradient, purely decorative - see .bg-glow
+     in style.css. Placed first/behind everything via z-index: -1. -->
 <div class="bg-glow"></div>
 
 <header class="topbar">
@@ -18,8 +35,31 @@
     </div>
   </div>
   <div class="topbar-right">
+    <!--
+      Two different, deliberately distinct link types sit side by side here:
+        - "工具啟動教學" is a <button>, not a link - clicking it doesn't
+          navigate anywhere, it just re-shows the setup-card below (see
+          app.js's setupLauncherReminder). It starts `hidden` and only
+          appears after the user has dismissed the setup card once, via
+          localStorage - see setupLauncherReminder's own comment for why a
+          static page can't just detect "is the Launcher installed?" directly
+          and has to rely on this remembered-dismissal approach instead.
+        - "工具上架說明" is a real <a> to a separate page (onboarding.html),
+          opened in a new tab (target="_blank") since it's a completely
+          different, much longer document aimed at a different audience
+          (people onboarding a NEW tool, not people using existing tools).
+      Both share the .setup-reopen-link CSS class so they look like the
+      same kind of pill-shaped secondary action despite being different
+      HTML elements underneath - see style.css's `button { font-family:
+      inherit }` comment for a subtlety this caused (buttons and links don't
+      get identical typography for free, even with the same class).
+    -->
     <button class="setup-reopen-link" id="setup-reopen" hidden>工具啟動教學</button>
     <a class="setup-reopen-link" href="onboarding.html" target="_blank" rel="noopener">工具上架說明</a>
+    <!-- Personal signature corner: a small mascot image (assets/mascot.png)
+         plus a name/id tag. hideMascotIfMissing() in app.js makes the image
+         fail gracefully (hides itself) rather than showing a broken-image
+         icon if the file is ever missing. -->
     <div class="signature">
       <img src="assets/mascot.png" alt="" class="mascot" />
       <span class="signature-tag">real_chang#14650</span>
@@ -28,6 +68,16 @@
 </header>
 
 <main>
+  <!--
+    First-time setup instructions. Uses a native <details>/<summary> element
+    (not a custom JS-driven collapsible) so it works even before app.js has
+    finished running, and starts `open` in the HTML source - app.js's
+    setupLauncherReminder() may immediately hide the whole element (via the
+    `hidden` attribute, separate from `open`) if the user has already
+    dismissed it before on this browser/machine; see that function's comment
+    block for the full reasoning on why this is remembered client-side
+    rather than detected automatically.
+  -->
   <details class="setup-card" id="setup-card" open>
     <summary>
       <span class="setup-icon">⬇</span>
@@ -38,10 +88,18 @@
       <ol class="setup-steps">
         <li>
           下載 Launcher：
+          <!-- Points directly at the GitHub Release asset - see
+               CONTRIBUTING.md/README.md for how this exe gets built
+               (PyInstaller --onefile --windowed) and re-uploaded to this
+               same release tag (launcher-v1.0.0) every time launcher.py
+               changes; the URL itself never needs to change. -->
           <a class="setup-download" href="https://github.com/real1027/real-toolbox/releases/download/launcher-v1.0.0/real-toolbox-launcher.exe">
             real-toolbox-launcher.exe
           </a>
         </li>
+        <!-- "設定完成" message box wording here must stay in sync with
+             register_protocol()'s show_message() call in launcher.py - if
+             that message text changes, update it here too. -->
         <li>雙擊執行一次，跳出「設定完成」的小提示視窗後按確定——這一步會把 <code>real-toolbox://</code> 這個連結類型註冊到你的電腦。</li>
         <li>回到這頁點下方任一工具的「啟動」，瀏覽器會詢問是否開啟 real-toolbox 連結，選「開啟」即可，通常之後不會再問。</li>
         <li>Launcher 會自動檢查版本、下載（如有需要）、然後執行工具。第一次下載某個工具時會跳出一個小視窗顯示進度，之後同版本再啟動就不會再出現。</li>
@@ -50,6 +108,12 @@
         工具預設安裝在 <code>D:\___ARC_MT_TOOLS___</code>。想改路徑可執行：
         <code>real-toolbox-launcher.exe --set-install-dir D:\你想要的路徑</code>
       </p>
+      <!-- This note exists because of a real support question during
+           development ("SFIS Emulator 突然開啟不了了") that turned out to be
+           Windows Defender scanning a freshly built/downloaded exe, not an
+           actual bug - see launcher.py's LOCK_TTL_SECONDS/module docstring
+           and app.js's LAUNCH_FEEDBACK_TIMEOUT_MS comment for the two other
+           places this same discovery shaped the design. -->
       <p class="setup-note">
         第一次執行全新的 Launcher 或全新下載的工具時，防毒軟體可能會先掃描檔案，感覺上會多等幾秒鐘，這是正常現象，不代表沒有啟動成功；同一個檔案之後再啟動就不會再等。
       </p>
@@ -57,7 +121,14 @@
     </div>
   </details>
 
+  <!-- Populated entirely by app.js's loadTools()/toolCard() - this element
+       starts empty in the HTML source. aria-live="polite" so screen readers
+       announce the tool list once it finishes loading, since it isn't
+       present in the initial page load. -->
   <section class="grid" id="tool-grid" aria-live="polite"></section>
+  <!-- Shown by app.js only if manifest.json legitimately has zero tools, or
+       if manifest.json itself failed to load at all (in which case its text
+       is replaced with the actual error - see loadTools()). -->
   <p class="empty-state" id="empty-state" hidden>目前還沒有工具。</p>
 </main>
 
