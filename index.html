@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>real-toolbox</title>
+<title>MT Toolbox</title>
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
@@ -11,21 +11,23 @@
 
 <header class="topbar">
   <div class="brand">
-    <span class="brand-mark">RT</span>
+    <span class="brand-mark">MT</span>
     <div>
-      <h1>real-toolbox</h1>
-      <p class="subtitle">個人／團隊開發工具啟動器</p>
+      <h1>MT Toolbox</h1>
+      <p class="subtitle">產測內部工具啟動器</p>
     </div>
   </div>
-  <nav class="tabs" id="tabs">
-    <button class="tab active" data-filter="all">全部</button>
-    <button class="tab" data-filter="internal">公司內部工具</button>
-    <button class="tab" data-filter="personal">個人工具</button>
-  </nav>
+  <div class="topbar-right">
+    <button class="setup-reopen-link" id="setup-reopen" hidden>安裝說明</button>
+    <div class="signature">
+      <img src="assets/mascot.png" alt="" class="mascot" />
+      <span class="signature-tag">real_chang#14650</span>
+    </div>
+  </div>
 </header>
 
 <main>
-  <details class="setup-card" open>
+  <details class="setup-card" id="setup-card" open>
     <summary>
       <span class="setup-icon">⬇</span>
       第一次使用？先安裝 Launcher
@@ -47,11 +49,12 @@
         工具預設安裝在 <code>D:\___ARC_MT_TOOLS___</code>。想改路徑可執行：
         <code>real-toolbox-launcher.exe --set-install-dir D:\你想要的路徑</code>
       </p>
+      <button class="dismiss-setup-btn" id="dismiss-setup">✓ 已完成安裝，不再顯示</button>
     </div>
   </details>
 
   <section class="grid" id="tool-grid" aria-live="polite"></section>
-  <p class="empty-state" id="empty-state" hidden>目前這個分類還沒有工具。</p>
+  <p class="empty-state" id="empty-state" hidden>目前還沒有工具。</p>
 </main>
 
 <script src="assets/app.js"></script>

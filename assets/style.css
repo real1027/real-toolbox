@@ -9,8 +9,6 @@
   --accent: #6cbf2a;
   --accent-hover: #5aa822;
   --accent-soft: rgba(108, 191, 42, 0.14);
-  --internal: #e08a2c;
-  --personal: #2f7de0;
   --shadow: 0 1px 2px rgba(36, 48, 28, 0.04), 0 4px 14px rgba(36, 48, 28, 0.05);
 }
 
@@ -75,31 +73,45 @@ html, body {
   font-size: 0.85rem;
 }
 
-.tabs {
+.topbar-right {
   display: flex;
-  gap: 0.4rem;
-  background: var(--bg-alt);
-  padding: 0.3rem;
-  border-radius: 999px;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.setup-reopen-link {
   border: 1px solid var(--border);
-}
-
-.tab {
-  border: none;
-  background: transparent;
+  background: var(--card);
   color: var(--muted);
-  padding: 0.45rem 1rem;
+  padding: 0.4rem 0.85rem;
   border-radius: 999px;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: color 0.15s, border-color 0.15s;
 }
 
-.tab:hover { color: var(--fg); }
+.setup-reopen-link:hover {
+  color: var(--accent-hover);
+  border-color: var(--accent);
+}
 
-.tab.active {
-  background: var(--accent);
-  color: white;
+.signature {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  opacity: 0.8;
+}
+
+.mascot {
+  height: 34px;
+  width: auto;
+  display: block;
+}
+
+.signature-tag {
+  font-size: 0.75rem;
+  color: var(--muted);
+  white-space: nowrap;
 }
 
 main {
@@ -172,7 +184,25 @@ main {
 
 .setup-download:hover { text-decoration: underline; }
 
-.setup-note { margin: 0; }
+.setup-note { margin: 0 0 0.9rem; }
+
+.dismiss-setup-btn {
+  border: 1px solid var(--border);
+  background: var(--bg-alt);
+  color: var(--fg);
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.dismiss-setup-btn:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-hover);
+}
 
 kbd {
   background: var(--bg-alt);
@@ -248,18 +278,6 @@ code {
   margin: 0;
   font-size: 1.02rem;
 }
-
-.badge {
-  flex-shrink: 0;
-  font-size: 0.7rem;
-  padding: 0.2rem 0.55rem;
-  border-radius: 999px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.badge-internal { background: rgba(224, 138, 44, 0.14); color: var(--internal); }
-.badge-personal { background: rgba(47, 125, 224, 0.12); color: var(--personal); }
 
 .card-desc {
   margin: 0;

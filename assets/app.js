@@ -9,10 +9,7 @@ const ICONS = {
   wrench: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z" />',
 };
 
-const CATEGORY_LABEL = {
-  internal: '公司內部',
-  personal: '個人專案',
-};
+const LAUNCHER_SETUP_KEY = 'mt_toolbox_launcher_ready';
 
 function svgIcon(name, size = 16, strokeWidth = 2) {
   const inner = ICONS[name];
@@ -70,13 +67,11 @@ function footerContent(tool) {
 function toolCard(tool) {
   const card = document.createElement('article');
   card.className = 'card' + (tool.status === 'coming_soon' ? ' is-coming-soon' : '');
-  card.dataset.category = tool.category;
   card.innerHTML = `
     <div class="card-art" aria-hidden="true">${cardArt(tool)}</div>
     <div class="card-body">
       <div class="card-top">
         <h3 class="card-title">${escapeHtml(tool.name)}</h3>
-        <span class="badge badge-${escapeHtml(tool.category)}">${escapeHtml(CATEGORY_LABEL[tool.category] || tool.category)}</span>
       </div>
       ${tool.description ? `<p class="card-desc">${escapeHtml(tool.description)}</p>` : ''}
       <div class="card-footer">
@@ -87,22 +82,32 @@ function toolCard(tool) {
   return card;
 }
 
-function applyFilter(filter) {
-  document.querySelectorAll('.card').forEach((card) => {
-    card.hidden = filter !== 'all' && card.dataset.category !== filter;
+function setupLauncherReminder() {
+  const card = document.getElementById('setup-card');
+  const reopenBtn = document.getElementById('setup-reopen');
+  const dismissBtn = document.getElementById('dismiss-setup');
+
+  const isDismissed = localStorage.getItem(LAUNCHER_SETUP_KEY) === '1';
+  card.hidden = isDismissed;
+  reopenBtn.hidden = !isDismissed;
+
+  dismissBtn.addEventListener('click', () => {
+    localStorage.setItem(LAUNCHER_SETUP_KEY, '1');
+    card.hidden = true;
+    reopenBtn.hidden = false;
   });
-  const visible = document.querySelectorAll('.card:not([hidden])').length;
-  document.getElementById('empty-state').hidden = visible !== 0;
+
+  reopenBtn.addEventListener('click', () => {
+    localStorage.removeItem(LAUNCHER_SETUP_KEY);
+    card.hidden = false;
+    card.open = true;
+    reopenBtn.hidden = true;
+  });
 }
 
-function setupTabs() {
-  const tabs = document.getElementById('tabs');
-  tabs.addEventListener('click', (e) => {
-    const btn = e.target.closest('.tab');
-    if (!btn) return;
-    tabs.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t === btn));
-    applyFilter(btn.dataset.filter);
-  });
+function hideMascotIfMissing() {
+  const mascot = document.querySelector('.mascot');
+  mascot.addEventListener('error', () => { mascot.hidden = true; });
 }
 
 async function loadTools() {
@@ -122,5 +127,6 @@ async function loadTools() {
   }
 }
 
-setupTabs();
+setupLauncherReminder();
+hideMascotIfMissing();
 loadTools();
