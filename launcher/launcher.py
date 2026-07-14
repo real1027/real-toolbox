@@ -18,7 +18,25 @@ import winreg
 import zipfile
 from pathlib import Path
 
-APP_DIR = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "real-toolbox"
+DEFAULT_APP_DIR = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "real-toolbox"
+CONFIG_FILE = DEFAULT_APP_DIR / "config.json"
+
+
+def resolve_app_dir():
+    env_override = os.environ.get("REAL_TOOLBOX_INSTALL_DIR")
+    if env_override:
+        return Path(env_override)
+    if CONFIG_FILE.exists():
+        try:
+            cfg = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+            if cfg.get("install_dir"):
+                return Path(cfg["install_dir"])
+        except (json.JSONDecodeError, OSError):
+            pass
+    return DEFAULT_APP_DIR
+
+
+APP_DIR = resolve_app_dir()
 TOOLS_DIR = APP_DIR / "tools"
 STATE_FILE = APP_DIR / "installed.json"
 
@@ -92,6 +110,21 @@ def parse_tool_id(uri):
     return match.group(1)
 
 
+def set_install_dir(path):
+    resolved = str(Path(path).resolve())
+    CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    cfg = {}
+    if CONFIG_FILE.exists():
+        try:
+            cfg = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            cfg = {}
+    cfg["install_dir"] = resolved
+    CONFIG_FILE.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+    print(f"安裝路徑已設定為: {resolved}")
+    print("（下次啟動工具時，會安裝到這個路徑；已下載的舊工具不會自動搬移。）")
+
+
 def register_protocol():
     if getattr(sys, "frozen", False):
         command = f'"{sys.executable}" "%1"'
@@ -108,16 +141,18 @@ def register_protocol():
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: launcher.py --register | launcher.py real-toolbox://launch/<tool-id>")
+    if len(sys.argv) >= 3 and sys.argv[1] == "--set-install-dir":
+        set_install_dir(sys.argv[2])
+        input("按 Enter 鍵關閉視窗...")
         return
 
-    arg = sys.argv[1]
-    if arg == "--register":
+    if len(sys.argv) < 2 or sys.argv[1] == "--register":
         register_protocol()
+        print("\n設定完成！之後在 real-toolbox 網頁上點擊工具連結就會自動啟動。")
+        input("按 Enter 鍵關閉視窗...")
         return
 
-    launch(parse_tool_id(arg))
+    launch(parse_tool_id(sys.argv[1]))
 
 
 if __name__ == "__main__":

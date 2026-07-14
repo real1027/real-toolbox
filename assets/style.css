@@ -83,3 +83,24 @@ section h2 {
   color: var(--muted);
   font-size: 0.9rem;
 }
+
+#setup {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-top: 1.5rem;
+}
+
+#setup h2 { margin-top: 0; border-bottom: none; padding-bottom: 0; }
+
+.setup-steps {
+  padding-left: 1.25rem;
+  line-height: 1.6;
+}
+
+code {
+  background: rgba(128, 128, 128, 0.15);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
