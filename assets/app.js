@@ -113,6 +113,47 @@ function hideMascotIfMissing() {
   mascot.addEventListener('error', () => { mascot.hidden = true; });
 }
 
+const LAUNCH_FEEDBACK_TIMEOUT_MS = 6000;
+
+// real-toolbox:// links give the page no callback at all - the OS either
+// hands off to the Launcher or shows its own "open app?" prompt, and either
+// way this script never hears back. So this is a best-effort UX patch, not a
+// real status: show "啟動中…" and block re-clicks for a few seconds, and if
+// the tab loses focus in the meantime (a strong signal something did open)
+// snap back to normal immediately instead of waiting out the timeout.
+function wireLaunchFeedback() {
+  const grid = document.getElementById('tool-grid');
+  let activeBtn = null;
+  let revertTimer = null;
+
+  function revert() {
+    if (!activeBtn) return;
+    activeBtn.classList.remove('is-loading');
+    activeBtn.innerHTML = activeBtn.dataset.originalLabel;
+    activeBtn = null;
+  }
+
+  grid.addEventListener('click', (e) => {
+    const btn = e.target.closest('a.launch-btn');
+    if (!btn || !(btn.getAttribute('href') || '').startsWith('real-toolbox://')) return;
+
+    revert();
+    btn.dataset.originalLabel = btn.innerHTML;
+    btn.classList.add('is-loading');
+    btn.innerHTML = `${LAUNCH_ICON}啟動中…`;
+    activeBtn = btn;
+    clearTimeout(revertTimer);
+    revertTimer = setTimeout(revert, LAUNCH_FEEDBACK_TIMEOUT_MS);
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && activeBtn) {
+      clearTimeout(revertTimer);
+      revert();
+    }
+  });
+}
+
 async function loadTools() {
   const grid = document.getElementById('tool-grid');
   try {
@@ -132,4 +173,5 @@ async function loadTools() {
 
 setupLauncherReminder();
 hideMascotIfMissing();
+wireLaunchFeedback();
 loadTools();

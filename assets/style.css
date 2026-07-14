@@ -328,6 +328,18 @@ code {
   pointer-events: none;
 }
 
+.launch-btn.is-loading {
+  background: var(--accent-hover);
+  pointer-events: none;
+  cursor: default;
+  animation: launch-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes launch-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
 .sub-tool-buttons {
   display: flex;
   flex-wrap: wrap;

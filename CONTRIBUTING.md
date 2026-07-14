@@ -34,11 +34,11 @@ Launcher 解壓後會在整個資料夾底下遞迴搜尋你指定的 exe 檔名
 ## 4. 把這些資訊交給 real-toolbox 維護者
 
 - **顯示名稱**：畫面上要顯示的工具名稱
-- **分類**：`internal`（公司內部）或 `personal`（個人專案）
 - **簡短描述**：一兩句話說明工具做什麼（可以直接給 README 內容，我們會摘要）
-- **版本號**：對應你目前的 release tag（例如 `1.0.0`）
+- **版本號**：對應你目前的 release tag（例如 `1.0.0`）——這個之後會自動更新，見下方第 5 節
 - **下載連結**：上面第 3 步的 permalink 網址
 - **exe 檔名**：zip 解壓後真正要執行的檔案名稱
+- **圖示**：想要的話可以指定一個 [Lucide](https://lucide.dev) icon 名稱，不指定的話畫面上會用工具名稱前兩個字當預設圖示
 
 ### 如果你的工具有多個進入點（像 LED AOI 有 CAM / ROI / LED 三支程式）
 
@@ -56,7 +56,6 @@ Launcher 解壓後會在整個資料夾底下遞迴搜尋你指定的 exe 檔名
 
 ## 5. 之後每次發新版
 
-1. 照常打新 tag、建新 Release、上傳新 zip（permalink 網址不用變）
-2. 通知 real-toolbox 維護者把 `manifest.json` 裡你那筆的 `latest_version` 改成新版號
+照常打新 tag、建新 Release、上傳新 zip（permalink 網址不用變）就好——**不需要再通知 real-toolbox 維護者更新 `manifest.json`**。Launcher 每次啟動工具前，會自己去問你 Release permalink 實際指到哪個 tag（不是讀 manifest 裡寫死的版號），有新版就自動抓新的下來、換掉舊的再執行。`manifest.json` 裡的 `latest_version` 只影響網頁卡片上顯示的版本號字樣，會慢慢過時沒關係，不影響實際下載/執行的正確性。
 
-Launcher 下次有人點你的工具時，會自動比對版本、抓新的下來、換掉舊的再執行。
+（這個機制只認得「GitLab Release permalink」這種下載連結格式；如果你的 `download_url` 不是這個格式，Launcher 會退回用 `manifest.json` 裡寫的 `latest_version` 判斷版本，這時候發新版還是要麻煩通知維護者更新。）
