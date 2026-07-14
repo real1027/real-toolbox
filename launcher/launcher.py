@@ -22,8 +22,7 @@ APP_DIR = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "real-toolbox
 TOOLS_DIR = APP_DIR / "tools"
 STATE_FILE = APP_DIR / "installed.json"
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_MANIFEST_URL = str(REPO_ROOT / "manifest.json")
+DEFAULT_MANIFEST_URL = "https://real1027.github.io/real-toolbox/manifest.json"
 MANIFEST_URL = os.environ.get("REAL_TOOLBOX_MANIFEST_URL", DEFAULT_MANIFEST_URL)
 
 
@@ -94,9 +93,10 @@ def parse_tool_id(uri):
 
 
 def register_protocol():
-    exe = sys.executable
-    script = str(Path(__file__).resolve())
-    command = f'"{exe}" "{script}" "%1"'
+    if getattr(sys, "frozen", False):
+        command = f'"{sys.executable}" "%1"'
+    else:
+        command = f'"{sys.executable}" "{Path(__file__).resolve()}" "%1"'
 
     key_path = r"Software\Classes\real-toolbox"
     with winreg.CreateKey(winreg.HKEY_CURRENT_USER, key_path) as key:
