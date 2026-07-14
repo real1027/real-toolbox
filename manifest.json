@@ -1,0 +1,13 @@
+{
+  "tools": [
+    {
+      "id": "sfisemulator_arcadyan",
+      "name": "SFIS Emulator",
+      "category": "internal",
+      "description": "Python 版 SFIS 檔案交換模擬器，透過 REQUEST/RESPONSE/RESULT/FEEDBACK 資料夾與產測程式交握，並用 SFIS_DB.csv 模擬 SFIS response。",
+      "latest_version": "1.3.1",
+      "download_url": "http://10.118.53.32/tools/sfisemulator_arcadyan/-/releases/permalink/latest/downloads/sfisemulator_arcadyan.zip",
+      "exe_name": "SfisSimulator.exe"
+    }
+  ]
+}
