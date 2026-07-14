@@ -263,8 +263,10 @@ code {
 
 .card-footer {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
+  gap: 0.5rem;
   margin-top: 0.4rem;
 }
 
@@ -286,9 +288,49 @@ code {
   padding: 0.45rem 0.9rem;
   border-radius: 8px;
   transition: background 0.15s;
+  border: none;
+  cursor: pointer;
 }
 
 .launch-btn:hover { background: var(--accent-hover); }
+
+.launch-btn.is-disabled {
+  background: var(--bg-alt);
+  color: var(--muted);
+  cursor: default;
+  pointer-events: none;
+}
+
+.sub-tool-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.sub-tool-buttons .launch-btn {
+  font-size: 0.78rem;
+  padding: 0.35rem 0.65rem;
+}
+
+.coming-soon-tag {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+}
+
+.card.is-coming-soon {
+  opacity: 0.72;
+}
+
+.card.is-coming-soon:hover {
+  transform: none;
+}
 
 .empty-state {
   color: var(--muted);

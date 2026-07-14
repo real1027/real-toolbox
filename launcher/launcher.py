@@ -85,9 +85,21 @@ def find_exe(root_dir, exe_name):
     raise SystemExit(f"{exe_name} not found under {root_dir} after extraction")
 
 
-def launch(tool_id):
+def resolve_exe_name(tool, sub_id):
+    if sub_id is None:
+        return tool["exe_name"]
+    for sub in tool.get("sub_tools", []):
+        if sub["id"] == sub_id:
+            return sub["exe_name"]
+    raise SystemExit(f"Sub-tool '{sub_id}' not found under '{tool['id']}'")
+
+
+def launch(tool_id, sub_id=None):
     manifest = load_manifest(MANIFEST_URL)
     tool = find_tool(manifest, tool_id)
+    if tool.get("status") == "coming_soon":
+        raise SystemExit(f"'{tool_id}' is not available yet")
+    exe_name = resolve_exe_name(tool, sub_id)
     state = load_state()
 
     version_dir = TOOLS_DIR / tool_id / tool["latest_version"]
@@ -99,15 +111,15 @@ def launch(tool_id):
         state[tool_id] = tool["latest_version"]
         save_state(state)
 
-    exe_path = find_exe(version_dir, tool["exe_name"])
+    exe_path = find_exe(version_dir, exe_name)
     subprocess.Popen([str(exe_path)], cwd=str(exe_path.parent))
 
 
-def parse_tool_id(uri):
-    match = re.match(r"real-toolbox://launch/([^/?#]+)", uri)
+def parse_launch_path(uri):
+    match = re.match(r"real-toolbox://launch/([^/?#]+)(?:/([^/?#]+))?", uri)
     if not match:
         raise SystemExit(f"Invalid real-toolbox URI: {uri}")
-    return match.group(1)
+    return match.group(1), match.group(2)
 
 
 def set_install_dir(path):
@@ -152,7 +164,8 @@ def main():
         input("按 Enter 鍵關閉視窗...")
         return
 
-    launch(parse_tool_id(sys.argv[1]))
+    tool_id, sub_id = parse_launch_path(sys.argv[1])
+    launch(tool_id, sub_id)
 
 
 if __name__ == "__main__":
