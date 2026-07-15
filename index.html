@@ -88,12 +88,14 @@
       <ol class="setup-steps">
         <li>
           下載 Launcher：
-          <!-- Points directly at the GitHub Release asset - see
-               CONTRIBUTING.md/README.md for how this exe gets built
-               (PyInstaller --onefile --windowed) and re-uploaded to this
-               same release tag (launcher-v1.0.0) every time launcher.py
-               changes; the URL itself never needs to change. -->
-          <a class="setup-download" href="https://github.com/real1027/real-toolbox/releases/download/launcher-v1.0.0/real-toolbox-launcher.exe">
+          <!-- Points at GitHub's "latest release" asset permalink - see
+               README.md's self-update section for the mechanism this
+               mirrors. This URL always resolves to the newest Launcher
+               release's asset regardless of its tag, so it never needs to
+               change again when a new Launcher version is cut - see
+               launcher.py's GITHUB_LAUNCHER_ASSET_URL, the exact same
+               fixed URL the Launcher's own self-update downloads from. -->
+          <a class="setup-download" href="https://github.com/real1027/real-toolbox/releases/latest/download/real-toolbox-launcher.exe">
             real-toolbox-launcher.exe
           </a>
         </li>
@@ -103,6 +105,7 @@
         <li>雙擊執行一次，跳出「設定完成」的小提示視窗後按確定——這一步會把 <code>real-toolbox://</code> 這個連結類型註冊到你的電腦。</li>
         <li>回到這頁點下方任一工具的「啟動」，瀏覽器會詢問是否開啟 real-toolbox 連結，選「開啟」即可，通常之後不會再問。</li>
         <li>Launcher 會自動檢查版本、下載（如有需要）、然後執行工具。第一次下載某個工具時會跳出一個小視窗顯示進度，之後同版本再啟動就不會再出現。</li>
+        <li>Launcher 之後有更新時會自動在背景下載並替換自己，不需要手動處理；只有這次的安裝需要手動下載一次。</li>
       </ol>
       <p class="setup-note">
         工具預設安裝在 <code>D:\___ARC_MT_TOOLS___</code>。想改路徑可執行：

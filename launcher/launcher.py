@@ -77,6 +77,42 @@ file per tool (or per tool+sub-tool) makes a second invocation, that arrives
 while the first is still mid-flight, back off immediately and silently
 instead of racing the first one (which could otherwise corrupt a half-written
 extraction or spawn the target program twice).
+
+=== Working offline (e.g. on a factory production line with no network) ===
+Real deployment reality: some machines running this Launcher are on a
+production line and are sometimes genuinely offline. See load_manifest's
+docstring for the full mechanism, but in short: every successful manifest
+fetch is cached to disk (MANIFEST_CACHE_FILE), and a failed fetch falls back
+to that cache instead of failing outright. Combined with resolve_live_version
+and fetch_download_fingerprint already being best-effort (they simply return
+None, not raise, when their network call fails), this means: a tool that is
+ALREADY installed and unchanged can still be launched with zero network
+connectivity at all. A tool that needs a fresh download/update genuinely
+cannot be fetched offline (see launch()'s friendlier error message for this
+specific case) - there is no way around that without the download itself
+being available somewhere offline, which is out of scope here. The one hard
+requirement offline support doesn't remove: a machine's very first-ever use
+of MT Toolbox still needs to be online at least once, since there is no way
+to know what tools even exist before ever fetching the manifest.
+
+=== Keeping the Launcher itself up to date (self-update) ===
+Nothing about the version/fingerprint checking above updates the Launcher
+program itself - it only ever manages the tools it launches. Without a
+separate mechanism, everyone's already-downloaded, already-registered copy
+of this exe would silently keep running whatever version they first
+installed, forever, even after this file changes and a new build is
+uploaded to the same GitHub Release. See the "Self-update" section further
+down (around LAUNCHER_VERSION/maybe_self_update/apply_update) for the fix:
+the Launcher applies the same "ask the host's Release system what's
+actually current" trick to itself (via GitHub's releases/latest redirect,
+GitHub's equivalent of the GitLab permalink trick used for tools) and, when
+it finds itself out of date, downloads the new exe and swaps itself out on
+disk automatically - fully silent, no user action required, and designed so
+that a failure at any step (network, download, or the file-swap itself)
+simply results in trying again on a later launch rather than breaking
+anything. This was an explicit design choice after asking the user how
+aggressive they wanted this (fully automatic vs. a manual "please update"
+notice) - they chose fully automatic.
 """
 
 import ctypes
@@ -202,15 +238,58 @@ DEFAULT_MANIFEST_URL = "https://real1027.github.io/real-toolbox/manifest.json"
 # edit this file.
 MANIFEST_URL = os.environ.get("REAL_TOOLBOX_MANIFEST_URL", DEFAULT_MANIFEST_URL)
 
+# A copy of the last successfully-fetched manifest.json, kept purely so a
+# machine with no internet at all (a common real scenario on a factory
+# production line - see load_manifest's docstring) can still launch a tool
+# it already has installed, instead of failing at the very first step just
+# because it couldn't re-fetch the catalogue it already knows about.
+MANIFEST_CACHE_FILE = APP_DIR / "manifest_cache.json"
+
 
 def load_manifest(manifest_url):
-    """Fetch and parse manifest.json. Supports both a real http(s) URL (the
-    normal case) and a plain local file path (so REAL_TOOLBOX_MANIFEST_URL
-    can point at a file on disk during development, with no separate code
-    path to keep in sync)."""
+    """Fetch and parse manifest.json, with an offline fallback.
+
+    Supports both a real http(s) URL (the normal case) and a plain local
+    file path (so REAL_TOOLBOX_MANIFEST_URL can point at a file on disk
+    during development, with no separate code path to keep in sync - the
+    cache mechanism below only applies to the http(s) case).
+
+    Every successful live fetch overwrites MANIFEST_CACHE_FILE with exactly
+    what was received. If the live fetch fails for any network reason
+    (no internet at all, or this specific host unreachable), this falls
+    back to that cached copy instead of failing outright - this is what
+    lets an already-installed tool still launch on a factory floor machine
+    with no network connectivity, as long as this machine has successfully
+    loaded the manifest at least once before while it did have connectivity.
+
+    Only raises (SystemExit, with a message meant to be read by an end
+    user - see main()'s top-level handler) when BOTH the live fetch and the
+    cache are unavailable: there is no way to know what tools even exist
+    without ever having fetched the manifest at least once, so a machine's
+    very first use of MT Toolbox genuinely does require being online.
+    """
     if manifest_url.startswith("http://") or manifest_url.startswith("https://"):
-        with urllib.request.urlopen(manifest_url, timeout=10) as resp:
-            return json.load(resp)
+        try:
+            with urllib.request.urlopen(manifest_url, timeout=10) as resp:
+                raw = resp.read()
+            manifest = json.loads(raw)
+            try:
+                APP_DIR.mkdir(parents=True, exist_ok=True)
+                MANIFEST_CACHE_FILE.write_bytes(raw)
+            except OSError:
+                # Caching is a nicety for next time, not required for this
+                # launch to succeed - a read-only/full disk must not turn a
+                # perfectly good live fetch into a failure.
+                pass
+            return manifest
+        except OSError:
+            if MANIFEST_CACHE_FILE.exists():
+                return json.loads(MANIFEST_CACHE_FILE.read_text(encoding="utf-8"))
+            raise SystemExit(
+                "無法連線取得工具清單，而且這台機器上沒有先前成功快取過的清單可用。\n\n"
+                "請確認網路連線；如果這是這台機器第一次使用 MT Toolbox，"
+                "離線環境下沒辦法完成第一次啟動（至少需要成功連線一次）。"
+            )
     with open(manifest_url, "r", encoding="utf-8") as f:
         return json.load(f)
 
@@ -627,6 +706,245 @@ def release_launch_lock(lock_file):
         lock_file.unlink(missing_ok=True)
 
 
+# =============================================================================
+# Self-update
+#
+# The Launcher applies the exact same "ask the host's own Release system what
+# the real current version is" trick to itself that resolve_live_version
+# applies to each tool - except the Launcher's own home is a GitHub Release
+# (this repo's launcher-v* tags), not a GitLab one, so this uses GitHub's
+# equivalent of the permalink redirect instead (see resolve_latest_launcher_
+# version). When a newer tag is found, the Launcher downloads the new exe and
+# swaps itself out on disk via a small detached helper step (see apply_update
+# and the hidden --apply-update dispatch case) - fully automatic, no user
+# action required, matching the "把工具接進來不用管版號" philosophy applied to
+# the Launcher itself. Every step here is deliberately best-effort: any
+# failure at any point (offline, GitHub unreachable, download interrupted,
+# the old exe file still locked when the swap is attempted) is swallowed
+# silently and simply tried again on a later launch - self-updating must
+# never be the reason a tool fails to start.
+# =============================================================================
+
+# Bump this, and cut a new GitHub Release tag in the form "launcher-vX.Y.Z"
+# with the freshly-built exe attached, every time launcher.py meaningfully
+# changes. Unlike the tools' download_url (a fixed permalink that always
+# resolves to whatever the newest release is), the Launcher's own update
+# check deliberately compares actual version *numbers* (this constant vs.
+# whatever tag GitHub's "latest release" currently points at) rather than
+# just detecting "is there anything newer" some other way, so that this
+# constant is always a truthful, at-a-glance answer to "what version of the
+# Launcher is this build" during development too.
+LAUNCHER_VERSION = "1.1.0"
+
+# GitHub's web UI (not just its REST API) redirects a repo's "latest
+# release" URL to that release's tag page - e.g. a HEAD request to
+# https://github.com/<owner>/<repo>/releases/latest comes back as a 302
+# whose Location header is .../releases/tag/launcher-v1.2.3. This is the
+# same technique resolve_live_version uses against GitLab's permalink
+# redirect, just GitHub's equivalent of it - no GitHub API token or
+# authentication needed since this repo is public. Used only to learn the
+# current *version number* for comparison against LAUNCHER_VERSION.
+GITHUB_LATEST_RELEASE_URL = "https://github.com/real1027/real-toolbox/releases/latest"
+
+# GitHub also has its own equivalent of GitLab's "permalink to the newest
+# asset" trick: releases/latest/download/<asset-name> always resolves to
+# whatever the newest release's same-named asset currently is, regardless of
+# that release's tag. This fixed URL is used both here (to actually download
+# the update - no need to construct a tag-specific URL from whatever
+# resolve_latest_launcher_version() returned) and on the web page itself for
+# the "下載 Launcher" link (see index.html) - neither ever needs to change
+# again when a new Launcher release is cut.
+GITHUB_LAUNCHER_ASSET_URL = "https://github.com/real1027/real-toolbox/releases/latest/download/real-toolbox-launcher.exe"
+
+# Don't hit GitHub on literally every single tool launch just to check for a
+# Launcher update - that's an extra network round-trip (and extra latency)
+# for a check that only ever matters rarely. Throttled to at most once per
+# this many seconds, tracked via a timestamp in CONFIG_FILE (see
+# resolve_app_dir's docstring for why that specific file's location was
+# chosen - same reasoning applies here: it's the one file guaranteed to
+# exist and be writable regardless of install-dir configuration).
+LAUNCHER_UPDATE_CHECK_INTERVAL_SECONDS = 24 * 60 * 60
+
+
+def resolve_latest_launcher_version():
+    """GitHub equivalent of resolve_live_version - HEAD request against
+    GITHUB_LATEST_RELEASE_URL (deliberately NOT following the redirect, same
+    reasoning as resolve_live_version: the tag is already visible in the
+    first response's Location header, no need to actually fetch the release
+    page), parse out the tag, strip the "launcher-v" prefix.
+
+    Returns None (meaning: caller should skip the update check this time)
+    on any failure - offline, GitHub unreachable, unexpected response shape,
+    etc. - never raises.
+    """
+    parsed = urllib.parse.urlsplit(GITHUB_LATEST_RELEASE_URL)
+    try:
+        conn = http.client.HTTPSConnection(parsed.netloc, timeout=6)
+        conn.request("HEAD", parsed.path)
+        resp = conn.getresponse()
+        location = resp.getheader("Location")
+        conn.close()
+    except OSError:
+        return None
+    if not location:
+        return None
+    tag = location.rstrip("/").rsplit("/", 1)[-1]
+    prefix = "launcher-v"
+    if tag.startswith(prefix):
+        return tag[len(prefix):]
+    return None
+
+
+def _read_config():
+    if not CONFIG_FILE.exists():
+        return {}
+    try:
+        return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def _write_config(cfg):
+    CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    CONFIG_FILE.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+
+
+def apply_update(new_path, old_path, self_path=None):
+    """The hidden second half of a self-update (see maybe_self_update): swap
+    a freshly-downloaded exe into place at old_path.
+
+    This runs as a SEPARATE process from the one that downloaded the new
+    exe - and critically, it must ALSO be a different exe file than
+    old_path itself, not just a different process. A real bug caught during
+    testing: an earlier version of this code spawned the helper directly as
+    `old_path --apply-update ...`, which fails every single time with a
+    permanent Access Denied error, not a transient one - a running Windows
+    process holds its own backing exe file open for as long as it executes
+    (that's how the OS keeps its code pages available), so a process quite
+    literally cannot replace the file it is currently running from,
+    regardless of how long it waits. See maybe_self_update, which now copies
+    the current exe to a throwaway "updater" path first and launches this
+    function from THAT copy - self_path, if provided, is that copy's own
+    path, which this function best-effort deletes after a successful swap
+    (see the end of this function) since it's no longer needed.
+
+    Retries for up to 10 minutes (300 attempts, 2 seconds apart) replacing
+    old_path before giving up. This generous window exists for a real,
+    separate reason from the bug above: old_path itself may still be held
+    open a while longer by the ORIGINAL Launcher process that triggered
+    this update - maybe_self_update() runs as the very last thing
+    dispatch() does (see its docstring), but that process doesn't actually
+    exit the instant it returns. If the tool being launched failed (e.g.
+    "coming_soon", or a real error), main()'s top-level handler still has
+    to show a message box and WAIT FOR THE USER TO CLICK IT before the
+    process truly exits, which could legitimately take anywhere from a
+    second to several minutes depending on when the user gets back to
+    their screen. A short retry window loses that race easily - confirmed
+    directly during testing. Since this helper is a fully invisible,
+    detached background process nobody is waiting on, there is essentially
+    no cost to letting it simply keep trying for a long time.
+
+    Deliberately silent either way (no message box) - see the module-level
+    comment above this section for why: a user did nothing to trigger this,
+    so nothing should interrupt them to announce it either succeeded or
+    failed. If it fails every retry, old_path is simply left as-is and the
+    next launch's version check will notice the same "outdated" state and
+    try the whole update again - this is safe to attempt repeatedly.
+    """
+    for _ in range(300):
+        try:
+            os.replace(new_path, old_path)
+            dbg(f"self-update applied: {old_path}")
+            break
+        except OSError:
+            time.sleep(2)
+    else:
+        dbg(f"self-update failed after retries, leaving {old_path} as-is")
+        Path(new_path).unlink(missing_ok=True)
+
+    # Best-effort cleanup of the throwaway updater copy this process is
+    # itself running from (see maybe_self_update) - a for/else "break" above
+    # means the swap succeeded and fell through to here; the retries-
+    # exhausted "else" branch above already returned without reaching this.
+    # Deleting one's own currently-executing exe file is a different (and
+    # more commonly supported) operation than replacing/overwriting it, but
+    # still isn't guaranteed to succeed instantly - failing here is fine and
+    # silent, it just means an ~11MB leftover file until the next time this
+    # happens to get cleaned up, not a functional problem.
+    if self_path:
+        try:
+            Path(self_path).unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def maybe_self_update():
+    """Best-effort: check (throttled) whether a newer Launcher build exists,
+    and if so, download it and hand off to a detached apply_update step.
+
+    Deliberately does NOT try to make the CURRENT launch use the new
+    version - this call downloads the update and arranges for it to be
+    swapped into place shortly after this process exits, so the update
+    takes effect starting from the user's NEXT click, not this one. That
+    trade-off is what keeps this safe: the tool the user actually asked for
+    right now always launches using the current, already-running,
+    already-working code, regardless of whether an update was found,
+    downloaded, or later successfully applied. See the module-level comment
+    above this section for the overall design reasoning.
+
+    Every failure mode - not frozen (a plain `python launcher.py` dev run,
+    where "updating a exe" doesn't apply), throttled (checked too recently),
+    no update available, network failure, download failure - results in
+    this function simply returning without doing anything, never raising.
+    This function must never be the reason a tool launch fails.
+    """
+    if not getattr(sys, "frozen", False):
+        return  # nothing meaningful to self-update when just running the .py directly
+
+    cfg = _read_config()
+    last_check = cfg.get("last_launcher_update_check", 0)
+    if time.time() - last_check < LAUNCHER_UPDATE_CHECK_INTERVAL_SECONDS:
+        return
+    cfg["last_launcher_update_check"] = time.time()
+    _write_config(cfg)
+
+    try:
+        latest = resolve_latest_launcher_version()
+        if latest is None or latest == LAUNCHER_VERSION:
+            return
+
+        exe_path = Path(sys.executable).resolve()
+        new_path = exe_path.with_name(exe_path.stem + ".new.exe")
+        urllib.request.urlretrieve(GITHUB_LAUNCHER_ASSET_URL, new_path)
+
+        # The swap step MUST run from a DIFFERENT exe file than old_path,
+        # not old_path itself - a Windows process holds its own backing exe
+        # file open for as long as it's running (that's how the OS keeps
+        # its code pages available), so a process launched directly as
+        # `old_path --apply-update ...` can never successfully replace
+        # old_path: it would be trying to overwrite the very file it's
+        # currently executing from, and this failed outright with an
+        # Access Denied error in real testing - not merely a slow retry,
+        # a permanent failure that no amount of waiting fixes. The fix is
+        # to copy the current exe to a throwaway "updater" path first and
+        # launch the detached helper from THAT copy instead; it holds a
+        # lock on the *copy*, not on old_path, so replacing old_path is
+        # unobstructed. apply_update best-effort deletes the updater copy
+        # itself after a successful swap (see its docstring).
+        updater_path = exe_path.with_name(exe_path.stem + ".updater.exe")
+        shutil.copy2(exe_path, updater_path)
+        subprocess.Popen(
+            [str(updater_path), "--apply-update", str(new_path), str(exe_path), str(updater_path)],
+            creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
+        )
+        dbg(f"self-update: found {latest} (current {LAUNCHER_VERSION}), handed off to apply_update")
+    except Exception:
+        # Truly best-effort - even an unexpected bug in this check must
+        # never surface to the user or block the tool they actually asked
+        # to launch. Logged for later debugging, not shown.
+        dbg(f"self-update check failed:\n{traceback.format_exc()}")
+
+
 def resolve_exe_name(tool, sub_id):
     """Figure out which exe filename to run for this invocation.
 
@@ -723,7 +1041,24 @@ def launch(tool_id, sub_id=None):
             tool_dir = TOOLS_DIR / tool_id
             if tool_dir.exists():
                 shutil.rmtree(tool_dir, ignore_errors=True)
-            download_and_extract(tool, version_dir, progress=progress)
+            try:
+                download_and_extract(tool, version_dir, progress=progress)
+            except OSError as e:
+                # A raw URLError/socket traceback here is technically
+                # accurate but unhelpful to an end user - this is the one
+                # specific failure worth a plain-language explanation,
+                # since it's the direct answer to "why won't it launch": a
+                # fresh download/update genuinely requires reaching this
+                # tool's download host (typically the internal GitLab),
+                # which offline-manifest-caching (see load_manifest) cannot
+                # help with - that only covers *already-installed, unchanged*
+                # tools.
+                raise SystemExit(
+                    f"無法下載 '{tool['name']}'：目前連不上下載來源"
+                    "（可能是離線，或不在內部網路內）。\n\n"
+                    "如果只是要執行已經裝過的版本，離線也可以用；"
+                    "但這次判斷需要重新下載或更新，離線/內網外無法完成。"
+                ) from e
             # Record what was actually installed, using the *current* version
             # and fingerprint (not necessarily what was in manifest.json),
             # so the next launch's comparison is against ground truth.
@@ -769,15 +1104,9 @@ def set_install_dir(path):
     it isn't a silent surprise.
     """
     resolved = str(Path(path).resolve())
-    CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    cfg = {}
-    if CONFIG_FILE.exists():
-        try:
-            cfg = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            cfg = {}
+    cfg = _read_config()
     cfg["install_dir"] = resolved
-    CONFIG_FILE.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+    _write_config(cfg)
     show_message(
         f"安裝路徑已設定為：\n{resolved}\n\n"
         "下次啟動工具時會安裝到這個路徑；已下載的舊工具不會自動搬移。"
@@ -848,13 +1177,23 @@ def dispatch():
     main() - see main()'s docstring for why the error handling lives one
     level up instead of here.
 
-    Three cases, checked in this order:
+    Four cases, checked in this order:
 
-      1. `real-toolbox-launcher.exe --set-install-dir <path>` - explicit
+      1. `real-toolbox-launcher.exe --apply-update <new-exe> <old-exe> [<self-exe>]` -
+         hidden, internal-only verb: this is what maybe_self_update() spawns
+         (from a throwaway COPY of the current exe, not the real one - see
+         apply_update's docstring for why that distinction is critical, not
+         cosmetic) as a separate detached process to swap a downloaded
+         update into place. The optional 4th argument is that throwaway
+         copy's own path, used for best-effort self-cleanup after a
+         successful swap. Never invoked by a user directly, and never
+         registered as the real-toolbox:// protocol handler.
+
+      2. `real-toolbox-launcher.exe --set-install-dir <path>` - explicit
          admin-ish command a user runs directly from a terminal to relocate
          where tools get installed. See set_install_dir().
 
-      2. `real-toolbox-launcher.exe` with no arguments at all, OR
+      3. `real-toolbox-launcher.exe` with no arguments at all, OR
          `real-toolbox-launcher.exe --register` explicitly - the one-time
          setup step. No-arguments is treated the same as --register
          specifically so that double-clicking the freshly downloaded exe in
@@ -862,14 +1201,36 @@ def dispatch():
          an install step, without requiring the user to know to open a
          terminal and type a flag. See register_protocol().
 
-      3. Anything else - assumed to be a real-toolbox://launch/... URI, the
+      4. Anything else - assumed to be a real-toolbox://launch/... URI, the
          normal case triggered by clicking a link on the web page (Windows
          passes the clicked URI as the sole argument, per the "%1" in the
          registered command - see register_protocol()). Parsed by
          parse_launch_path, then guarded by the launch-lock (see
          acquire_launch_lock's docstring for why) before actually calling
          launch().
+
+         maybe_self_update() is called LAST, in the `finally` alongside
+         releasing the launch-lock - so it always runs whether launch()
+         succeeded or raised (e.g. "this tool isn't available yet"), but
+         deliberately not before or during the tool's own launch. apply_update
+         (the detached helper
+         maybe_self_update spawns) can only successfully swap this process's
+         exe file out once this process has actually exited, and it only
+         retries for a bounded window (see apply_update's docstring) rather
+         than waiting indefinitely - so the less work this process still has
+         left to do after spawning that helper, the better its chances of
+         winning that race. Checking last, right before this function
+         returns and the process exits, minimizes that window to essentially
+         nothing. (An earlier version of this code called maybe_self_update()
+         before the tool launch instead, and real testing showed the race
+         losing consistently - the tool's own download could easily
+         outlast apply_update's retry budget on its own.)
     """
+    if len(sys.argv) >= 4 and sys.argv[1] == "--apply-update":
+        self_path = sys.argv[4] if len(sys.argv) >= 5 else None
+        apply_update(sys.argv[2], sys.argv[3], self_path)
+        return
+
     if len(sys.argv) >= 3 and sys.argv[1] == "--set-install-dir":
         set_install_dir(sys.argv[2])
         return
@@ -895,6 +1256,12 @@ def dispatch():
         launch(tool_id, sub_id)
     finally:
         release_launch_lock(lock_file)
+        # In the finally, not after the try/finally block - launch() raising
+        # (a genuinely failed launch, or a deliberate SystemExit like "this
+        # tool isn't available yet") must not skip the self-update check;
+        # a self-update opportunity shouldn't depend on the requested tool
+        # having launched successfully.
+        maybe_self_update()
 
 
 def main():
