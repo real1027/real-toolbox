@@ -131,6 +131,17 @@ import winreg
 import zipfile
 from pathlib import Path
 
+# Bump this, and cut a new GitHub Release tag in the form "launcher-vX.Y.Z"
+# with the freshly-built exe attached, every time launcher.py meaningfully
+# changes - see the "Self-update" section further down for how this constant
+# gets compared against GitHub's actual latest release tag. Defined here at
+# the very top (rather than down in that section) specifically so
+# show_message can use it in every message box's title by default (see
+# below) - otherwise there was previously NO way for a user to ever find out
+# what version of the Launcher they were running at all, since nothing
+# printed it anywhere on its own.
+LAUNCHER_VERSION = "1.2.0"
+
 # --- Windows message-box helpers -------------------------------------------
 # There is no console (see module docstring), so these MB_* constants pick
 # which icon ctypes.windll.user32.MessageBoxW shows: an "i" info icon for
@@ -158,11 +169,20 @@ def dbg(msg):
         pass
 
 
-def show_message(text, icon=MB_ICONINFORMATION, title="MT Toolbox Launcher"):
+def show_message(text, icon=MB_ICONINFORMATION, title=f"MT Toolbox Launcher v{LAUNCHER_VERSION}"):
     """Native Windows message box. This blocks until the user clicks OK -
     that's fine for --register/--set-install-dir (the user is actively
     waiting), and for the top-level error handler in main() (there's nothing
-    more useful to do than tell the user what broke and stop)."""
+    more useful to do than tell the user what broke and stop).
+
+    The default title always includes LAUNCHER_VERSION - this is the ONE
+    place a user can passively see what version of the Launcher they're
+    running, without needing to know a --version flag exists at all: every
+    message box this program ever shows (register confirmation,
+    set-install-dir confirmation, any error) carries it in the title bar for
+    free. See the module-level --version handling in dispatch() for the
+    explicit, on-demand way to check it too.
+    """
     ctypes.windll.user32.MessageBoxW(0, text, title, icon)
 
 
@@ -725,16 +745,16 @@ def release_launch_lock(lock_file):
 # never be the reason a tool fails to start.
 # =============================================================================
 
-# Bump this, and cut a new GitHub Release tag in the form "launcher-vX.Y.Z"
-# with the freshly-built exe attached, every time launcher.py meaningfully
-# changes. Unlike the tools' download_url (a fixed permalink that always
-# resolves to whatever the newest release is), the Launcher's own update
-# check deliberately compares actual version *numbers* (this constant vs.
-# whatever tag GitHub's "latest release" currently points at) rather than
-# just detecting "is there anything newer" some other way, so that this
-# constant is always a truthful, at-a-glance answer to "what version of the
-# Launcher is this build" during development too.
-LAUNCHER_VERSION = "1.1.0"
+# (LAUNCHER_VERSION itself is defined near the top of this file, not here -
+# see that definition's comment for why: show_message needed it available
+# for every message box's default title, which runs long before this
+# section of the file is reached.) Unlike the tools' download_url (a fixed
+# permalink that always resolves to whatever the newest release is), this
+# self-update check deliberately compares actual version *numbers* (this
+# constant vs. whatever tag GitHub's "latest release" currently points at)
+# rather than just detecting "is there anything newer" some other way, so
+# that the constant is always a truthful, at-a-glance answer to "what
+# version of the Launcher is this build" during development too.
 
 # GitHub's web UI (not just its REST API) redirects a repo's "latest
 # release" URL to that release's tag page - e.g. a HEAD request to
@@ -1177,7 +1197,7 @@ def dispatch():
     main() - see main()'s docstring for why the error handling lives one
     level up instead of here.
 
-    Four cases, checked in this order:
+    Five cases, checked in this order:
 
       1. `real-toolbox-launcher.exe --apply-update <new-exe> <old-exe> [<self-exe>]` -
          hidden, internal-only verb: this is what maybe_self_update() spawns
@@ -1189,11 +1209,19 @@ def dispatch():
          successful swap. Never invoked by a user directly, and never
          registered as the real-toolbox:// protocol handler.
 
-      2. `real-toolbox-launcher.exe --set-install-dir <path>` - explicit
+      2. `real-toolbox-launcher.exe --version` - explicit, on-demand version
+         check for anyone who wants to confirm it without triggering
+         anything else (--register, a real launch, etc). See
+         show_message's docstring for the OTHER, passive way a version
+         is visible: every message box this program ever shows carries
+         LAUNCHER_VERSION in its title by default, so a user doesn't
+         strictly need to know this flag exists at all.
+
+      3. `real-toolbox-launcher.exe --set-install-dir <path>` - explicit
          admin-ish command a user runs directly from a terminal to relocate
          where tools get installed. See set_install_dir().
 
-      3. `real-toolbox-launcher.exe` with no arguments at all, OR
+      4. `real-toolbox-launcher.exe` with no arguments at all, OR
          `real-toolbox-launcher.exe --register` explicitly - the one-time
          setup step. No-arguments is treated the same as --register
          specifically so that double-clicking the freshly downloaded exe in
@@ -1201,7 +1229,7 @@ def dispatch():
          an install step, without requiring the user to know to open a
          terminal and type a flag. See register_protocol().
 
-      4. Anything else - assumed to be a real-toolbox://launch/... URI, the
+      5. Anything else - assumed to be a real-toolbox://launch/... URI, the
          normal case triggered by clicking a link on the web page (Windows
          passes the clicked URI as the sole argument, per the "%1" in the
          registered command - see register_protocol()). Parsed by
@@ -1229,6 +1257,10 @@ def dispatch():
     if len(sys.argv) >= 4 and sys.argv[1] == "--apply-update":
         self_path = sys.argv[4] if len(sys.argv) >= 5 else None
         apply_update(sys.argv[2], sys.argv[3], self_path)
+        return
+
+    if len(sys.argv) >= 2 and sys.argv[1] == "--version":
+        show_message(f"目前安裝的版本：v{LAUNCHER_VERSION}")
         return
 
     if len(sys.argv) >= 3 and sys.argv[1] == "--set-install-dir":
