@@ -107,12 +107,16 @@ the Launcher applies the same "ask the host's Release system what's
 actually current" trick to itself (via GitHub's releases/latest redirect,
 GitHub's equivalent of the GitLab permalink trick used for tools) and, when
 it finds itself out of date, downloads the new exe and swaps itself out on
-disk automatically - fully silent, no user action required, and designed so
-that a failure at any step (network, download, or the file-swap itself)
-simply results in trying again on a later launch rather than breaking
-anything. This was an explicit design choice after asking the user how
-aggressive they wanted this (fully automatic vs. a manual "please update"
-notice) - they chose fully automatic.
+disk automatically - no user action required at all, and designed so that
+a failure at any step (network, download, or the file-swap itself) simply
+results in trying again on a later launch rather than breaking anything.
+This was an explicit design choice after asking the user how aggressive
+they wanted this (fully automatic vs. a manual "please update" notice) -
+they chose fully automatic. A successful swap DOES show one confirmation
+message box afterward (with what changed, pulled from that release's own
+GitHub description) - added after real feedback that a *completely*
+silent update left no way to tell whether anything had happened at all;
+see apply_update for exactly when/how.
 """
 
 import ctypes
@@ -140,7 +144,7 @@ from pathlib import Path
 # below) - otherwise there was previously NO way for a user to ever find out
 # what version of the Launcher they were running at all, since nothing
 # printed it anywhere on its own.
-LAUNCHER_VERSION = "1.2.0"
+LAUNCHER_VERSION = "1.3.0"
 
 # --- Windows message-box helpers -------------------------------------------
 # There is no console (see module docstring), so these MB_* constants pick
@@ -815,6 +819,27 @@ def resolve_latest_launcher_version():
     return None
 
 
+def fetch_release_changelog(version):
+    """Best-effort: fetch the GitHub Release's own description text for
+    launcher-v<version> via GitHub's REST API, so a successful self-update
+    can tell the user what actually changed - not just that something did.
+    Every GitHub Release this project cuts already has a human-written
+    Traditional Chinese description (see the repo's release history), so
+    this is free to surface rather than a new thing to maintain.
+
+    Returns "" (not None) on any failure - a missing/unreachable changelog
+    must never block or fail the update itself, just result in a slightly
+    less informative confirmation message afterward.
+    """
+    url = f"https://api.github.com/repos/real1027/real-toolbox/releases/tags/launcher-v{version}"
+    try:
+        with urllib.request.urlopen(url, timeout=8) as resp:
+            data = json.loads(resp.read())
+        return (data.get("body") or "").strip()
+    except (OSError, ValueError):
+        return ""
+
+
 def _read_config():
     if not CONFIG_FILE.exists():
         return {}
@@ -829,7 +854,7 @@ def _write_config(cfg):
     CONFIG_FILE.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
 
 
-def apply_update(new_path, old_path, self_path=None):
+def apply_update(new_path, old_path, self_path=None, new_version=None, changelog_path=None):
     """The hidden second half of a self-update (see maybe_self_update): swap
     a freshly-downloaded exe into place at old_path.
 
@@ -864,38 +889,68 @@ def apply_update(new_path, old_path, self_path=None):
     detached background process nobody is waiting on, there is essentially
     no cost to letting it simply keep trying for a long time.
 
-    Deliberately silent either way (no message box) - see the module-level
-    comment above this section for why: a user did nothing to trigger this,
-    so nothing should interrupt them to announce it either succeeded or
-    failed. If it fails every retry, old_path is simply left as-is and the
-    next launch's version check will notice the same "outdated" state and
-    try the whole update again - this is safe to attempt repeatedly.
+    Silent on FAILURE either way (no message box) - a user did nothing to
+    trigger this, so a failure shouldn't interrupt them; if it fails every
+    retry, old_path is simply left as-is and the next launch's version
+    check will notice the same "outdated" state and try again - this is
+    safe to attempt repeatedly. On SUCCESS, though, this now shows one
+    message box confirming the update and what changed (new_version /
+    changelog_path, both best-effort - see maybe_self_update for where
+    they come from) - added after real user feedback that a fully silent
+    update left no way to tell whether anything had happened at all. This
+    still isn't shown to the user who *triggered* the check (that process
+    already exited by the time this runs) - it appears as an independent
+    popup sometime after they've already moved on to using their tool,
+    which is an acceptable trade-off for "yes, something did happen" being
+    visible at all.
     """
+    succeeded = False
     for _ in range(300):
         try:
             os.replace(new_path, old_path)
             dbg(f"self-update applied: {old_path}")
+            succeeded = True
             break
         except OSError:
             time.sleep(2)
-    else:
+    if not succeeded:
         dbg(f"self-update failed after retries, leaving {old_path} as-is")
         Path(new_path).unlink(missing_ok=True)
 
     # Best-effort cleanup of the throwaway updater copy this process is
-    # itself running from (see maybe_self_update) - a for/else "break" above
-    # means the swap succeeded and fell through to here; the retries-
-    # exhausted "else" branch above already returned without reaching this.
-    # Deleting one's own currently-executing exe file is a different (and
-    # more commonly supported) operation than replacing/overwriting it, but
-    # still isn't guaranteed to succeed instantly - failing here is fine and
-    # silent, it just means an ~11MB leftover file until the next time this
-    # happens to get cleaned up, not a functional problem.
+    # itself running from (see maybe_self_update). Deleting one's own
+    # currently-executing exe file is a different (and more commonly
+    # supported) operation than replacing/overwriting it, but still isn't
+    # guaranteed to succeed instantly - failing here is fine and silent, it
+    # just means an ~11MB leftover file until the next time this happens to
+    # get cleaned up, not a functional problem. Attempted regardless of
+    # whether the actual update succeeded - this copy is unneeded either way.
     if self_path:
         try:
             Path(self_path).unlink(missing_ok=True)
         except OSError:
             pass
+
+    if succeeded and new_version:
+        changelog_text = ""
+        if changelog_path:
+            try:
+                changelog_text = Path(changelog_path).read_text(encoding="utf-8").strip()
+            except OSError:
+                pass
+            finally:
+                Path(changelog_path).unlink(missing_ok=True)
+        body = f"MT Toolbox Launcher 已自動更新到 v{new_version}"
+        if changelog_text:
+            body += f"\n\n這次更新內容：\n{changelog_text}"
+        # Explicit title override, not show_message's default - the
+        # default bakes in LAUNCHER_VERSION from THIS running process's own
+        # compiled-in constant, which is still the OLD version even though
+        # old_path's file has already been replaced on disk (a running
+        # process's in-memory code doesn't change just because its backing
+        # file did) - using the default here would show a confusingly
+        # stale version number right next to a body claiming a new one.
+        show_message(body, title=f"MT Toolbox Launcher v{new_version}")
 
 
 def maybe_self_update():
@@ -937,6 +992,20 @@ def maybe_self_update():
         new_path = exe_path.with_name(exe_path.stem + ".new.exe")
         urllib.request.urlretrieve(GITHUB_LAUNCHER_ASSET_URL, new_path)
 
+        # Fetched here (while still running as the OLD code) and handed to
+        # apply_update as a file, rather than having apply_update fetch it
+        # itself - apply_update runs from a copy of this OLD exe (see below),
+        # so it has no way to know what changed in a version it's never
+        # seen the source of; the only way it can show a meaningful "what's
+        # new" message is if the CURRENT (old) code, which already knows
+        # `latest`, fetches the text and simply hands it over as data.
+        changelog = fetch_release_changelog(latest)
+        changelog_path = exe_path.with_name(exe_path.stem + ".changelog.txt")
+        try:
+            changelog_path.write_text(changelog, encoding="utf-8")
+        except OSError:
+            changelog_path = None
+
         # The swap step MUST run from a DIFFERENT exe file than old_path,
         # not old_path itself - a Windows process holds its own backing exe
         # file open for as long as it's running (that's how the OS keeps
@@ -953,8 +1022,11 @@ def maybe_self_update():
         # itself after a successful swap (see its docstring).
         updater_path = exe_path.with_name(exe_path.stem + ".updater.exe")
         shutil.copy2(exe_path, updater_path)
+        cmd = [str(updater_path), "--apply-update", str(new_path), str(exe_path), str(updater_path), latest]
+        if changelog_path:
+            cmd.append(str(changelog_path))
         subprocess.Popen(
-            [str(updater_path), "--apply-update", str(new_path), str(exe_path), str(updater_path)],
+            cmd,
             creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
         )
         dbg(f"self-update: found {latest} (current {LAUNCHER_VERSION}), handed off to apply_update")
@@ -1199,15 +1271,18 @@ def dispatch():
 
     Five cases, checked in this order:
 
-      1. `real-toolbox-launcher.exe --apply-update <new-exe> <old-exe> [<self-exe>]` -
+      1. `real-toolbox-launcher.exe --apply-update <new-exe> <old-exe> [<self-exe> [<new-version> [<changelog-file>]]]` -
          hidden, internal-only verb: this is what maybe_self_update() spawns
          (from a throwaway COPY of the current exe, not the real one - see
          apply_update's docstring for why that distinction is critical, not
          cosmetic) as a separate detached process to swap a downloaded
-         update into place. The optional 4th argument is that throwaway
-         copy's own path, used for best-effort self-cleanup after a
-         successful swap. Never invoked by a user directly, and never
-         registered as the real-toolbox:// protocol handler.
+         update into place. The optional trailing arguments are: that
+         throwaway copy's own path (for best-effort self-cleanup), the new
+         version string, and a path to a text file with that release's
+         changelog - the latter two are used to show a one-time "update
+         applied" confirmation with what changed, only after a successful
+         swap (see apply_update). Never invoked by a user directly, and
+         never registered as the real-toolbox:// protocol handler.
 
       2. `real-toolbox-launcher.exe --version` - explicit, on-demand version
          check for anyone who wants to confirm it without triggering
@@ -1256,7 +1331,9 @@ def dispatch():
     """
     if len(sys.argv) >= 4 and sys.argv[1] == "--apply-update":
         self_path = sys.argv[4] if len(sys.argv) >= 5 else None
-        apply_update(sys.argv[2], sys.argv[3], self_path)
+        new_version = sys.argv[5] if len(sys.argv) >= 6 else None
+        changelog_path = sys.argv[6] if len(sys.argv) >= 7 else None
+        apply_update(sys.argv[2], sys.argv[3], self_path, new_version, changelog_path)
         return
 
     if len(sys.argv) >= 2 and sys.argv[1] == "--version":
