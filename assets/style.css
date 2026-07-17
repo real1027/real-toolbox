@@ -95,6 +95,36 @@ html, body {
   gap: 0.9rem;
 }
 
+/* Language toggle (see assets/i18n.js's initLanguageSwitcher) - a compact
+   segmented control, same visual family as .tabs used to be, styled to sit
+   comfortably among the other topbar-right pill buttons/links. */
+.lang-switcher {
+  display: flex;
+  gap: 0.2rem;
+  background: var(--bg-alt);
+  padding: 0.2rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+
+.lang-btn {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.lang-btn:hover { color: var(--fg); }
+
+.lang-btn.active {
+  background: var(--accent);
+  color: white;
+}
+
 .setup-reopen-link {
   border: 1px solid var(--border);
   background: var(--card);

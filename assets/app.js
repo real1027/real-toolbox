@@ -17,6 +17,12 @@
 //
 // There is no build step - this is loaded directly via <script src="assets/
 // app.js"> in index.html, so it must run in every evergreen browser as-is.
+//
+// Depends on assets/i18n.js being loaded first (see index.html's <script>
+// order) for the t()/escapeHtml-adjacent translation helper and the
+// mt-toolbox-langchange event this file listens for - card chrome text like
+// "啟動"/"即將推出" is looked up via t() at render time, NOT hard-coded
+// Chinese, even though it reads that way in this file's own comments.
 // =============================================================================
 
 // Icon path data for every icon a tool's manifest entry can reference via its
@@ -141,15 +147,15 @@ function launchButton(href, label) {
 function footerContent(tool) {
   if (tool.status === 'coming_soon') {
     return `
-      <span class="coming-soon-tag">即將推出</span>
-      <span class="launch-btn is-disabled">${LAUNCH_ICON}啟動</span>
+      <span class="coming-soon-tag">${escapeHtml(t('index.card.comingSoon'))}</span>
+      <span class="launch-btn is-disabled">${LAUNCH_ICON}${escapeHtml(t('index.card.launch'))}</span>
     `;
   }
 
   if (tool.type === 'link') {
     return `
-      <span class="version-tag">外部連結</span>
-      <a class="launch-btn" target="_blank" rel="noopener" href="${escapeHtml(tool.url)}">${EXTERNAL_ICON}前往</a>
+      <span class="version-tag">${escapeHtml(t('index.card.externalLink'))}</span>
+      <a class="launch-btn" target="_blank" rel="noopener" href="${escapeHtml(tool.url)}">${EXTERNAL_ICON}${escapeHtml(t('index.card.goto'))}</a>
     `;
   }
 
@@ -162,7 +168,7 @@ function footerContent(tool) {
 
   return `
     <span class="version-tag">v${escapeHtml(tool.latest_version)}</span>
-    ${launchButton(`real-toolbox://launch/${encodeURIComponent(tool.id)}`, '啟動')}
+    ${launchButton(`real-toolbox://launch/${encodeURIComponent(tool.id)}`, t('index.card.launch'))}
   `;
 }
 
@@ -344,7 +350,7 @@ function wireLaunchFeedback() {
     revert();
     btn.dataset.originalLabel = btn.innerHTML;
     btn.classList.add('is-loading');
-    btn.innerHTML = `${LAUNCH_ICON}啟動中…`;
+    btn.innerHTML = `${LAUNCH_ICON}${escapeHtml(t('index.card.launching'))}`;
     activeBtn = btn;
     clearTimeout(revertTimer);
     revertTimer = setTimeout(revert, LAUNCH_FEEDBACK_TIMEOUT_MS);
@@ -374,28 +380,55 @@ function wireLaunchFeedback() {
 // manifest failed to load" is a very different situation from "the manifest
 // loaded fine and is just empty" and a user/maintainer debugging a broken
 // deployment needs to see which one it is.
+// Tools fetched once and kept around (rather than re-fetching manifest.json
+// every time) specifically so switching language (see the
+// mt-toolbox-langchange listener below) can re-render every card's chrome
+// text (即將推出/啟動/前往 etc. - see footerContent) in the new language
+// without an unnecessary extra network round-trip. Tool names/descriptions
+// themselves don't change with the language switch (see this file's
+// top-of-file comment on what is/isn't translated) - only re-running
+// toolCard() picks up the new t() results for the fixed UI chrome inside it.
+let cachedTools = null;
+
+function renderCards() {
+  const grid = document.getElementById('tool-grid');
+  grid.innerHTML = '';
+  if (!cachedTools || !cachedTools.length) {
+    document.getElementById('empty-state').hidden = false;
+    return;
+  }
+  document.getElementById('empty-state').hidden = true;
+  for (const tool of cachedTools) {
+    grid.appendChild(toolCard(tool));
+  }
+}
+
 async function loadTools() {
   const grid = document.getElementById('tool-grid');
   try {
     const res = await fetch('manifest.json', { cache: 'no-store' });
     const { tools } = await res.json();
-    if (!tools.length) {
-      document.getElementById('empty-state').hidden = false;
-      return;
-    }
-    for (const tool of tools) {
-      grid.appendChild(toolCard(tool));
-    }
+    cachedTools = tools;
+    renderCards();
   } catch (err) {
-    grid.innerHTML = `<p class="empty-state">無法載入工具清單：${escapeHtml(err.message)}</p>`;
+    grid.innerHTML = `<p class="empty-state">${escapeHtml(t('index.errorPrefix'))}${escapeHtml(err.message)}</p>`;
   }
 }
 
 // Run everything at script-load time - this file is loaded with a plain
 // <script src="assets/app.js"> at the very end of <body> (see index.html),
 // after all the elements these functions reference already exist in the
-// DOM, so there's no need to wait for a DOMContentLoaded event.
+// DOM, so there's no need to wait for a DOMContentLoaded event. assets/
+// i18n.js is loaded (and runs its own initI18n()) before this script, so
+// t()/applyTranslations() are already available and the static chrome text
+// is already translated by the time this runs.
 setupLauncherReminder();
 hideMascotIfMissing();
 wireLaunchFeedback();
 loadTools();
+
+// Re-render the tool cards (see renderCards) whenever the language switcher
+// changes languages, so card-level chrome text (啟動/即將推出/前往 etc.)
+// updates immediately without a page reload. Fixed page chrome outside the
+// card grid is already handled by assets/i18n.js's own applyTranslations().
+document.addEventListener('mt-toolbox-langchange', renderCards);

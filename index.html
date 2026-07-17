@@ -13,6 +13,12 @@
   click on a tool's "啟動" button actually results in a program running on
   the user's machine, and launcher/launcher.py's module docstring for the
   Launcher side of that handshake.
+
+  Trilingual (zh-Hant / en / vi): every fixed piece of text on this page is
+  translated via assets/i18n.js (elements marked data-i18n/data-i18n-html) -
+  see that file's top comment for how it works. Tool NAMES/DESCRIPTIONS from
+  manifest.json are deliberately NOT translated - only this page's own
+  chrome is.
 -->
 <html lang="zh-Hant">
 <head>
@@ -31,10 +37,14 @@
     <span class="brand-mark">MT</span>
     <div>
       <h1>MT Toolbox</h1>
-      <p class="subtitle">產測開發工具啟動器</p>
+      <p class="subtitle" data-i18n="index.subtitle">產測開發工具啟動器</p>
     </div>
   </div>
   <div class="topbar-right">
+    <!-- Populated by assets/i18n.js's initLanguageSwitcher() with one
+         button per supported language (zh/en/vi) - see that file's
+         SUPPORTED_LANGS/LANG_LABELS. -->
+    <div id="lang-switcher" class="lang-switcher"></div>
     <!--
       Two different, deliberately distinct link types sit side by side here:
         - "工具啟動教學" is a <button>, not a link - clicking it doesn't
@@ -54,8 +64,8 @@
       inherit }` comment for a subtlety this caused (buttons and links don't
       get identical typography for free, even with the same class).
     -->
-    <button class="setup-reopen-link" id="setup-reopen" hidden>工具啟動教學</button>
-    <a class="setup-reopen-link" href="onboarding.html" target="_blank" rel="noopener">工具上架說明</a>
+    <button class="setup-reopen-link" id="setup-reopen" hidden data-i18n="nav.setupReopen">工具啟動教學</button>
+    <a class="setup-reopen-link" href="onboarding.html" target="_blank" rel="noopener" data-i18n="nav.onboardingLink">工具上架說明</a>
     <!-- Personal signature corner: a small mascot image (assets/mascot.png)
          plus a name/id tag. hideMascotIfMissing() in app.js makes the image
          fail gracefully (hides itself) rather than showing a broken-image
@@ -81,13 +91,13 @@
   <details class="setup-card" id="setup-card" open>
     <summary>
       <span class="setup-icon">⬇</span>
-      第一次使用？先安裝 Launcher
+      <span data-i18n="index.setup.title">第一次使用？先安裝 Launcher</span>
       <span class="chevron">›</span>
     </summary>
     <div class="setup-body">
       <ol class="setup-steps">
         <li>
-          下載 Launcher：
+          <span data-i18n="index.setup.step1Prefix">下載 Launcher：</span>
           <!-- Points at GitHub's "latest release" asset permalink - see
                README.md's self-update section for the mechanism this
                mirrors. This URL always resolves to the newest Launcher
@@ -101,13 +111,14 @@
         </li>
         <!-- "設定完成" message box wording here must stay in sync with
              register_protocol()'s show_message() call in launcher.py - if
-             that message text changes, update it here too. -->
-        <li>雙擊執行一次，跳出「設定完成」的小提示視窗後按確定——這一步會把 <code>real-toolbox://</code> 這個連結類型註冊到你的電腦。</li>
-        <li>回到這頁點下方任一工具的「啟動」，瀏覽器會詢問是否開啟 real-toolbox 連結，選「開啟」即可，通常之後不會再問。</li>
-        <li>Launcher 會自動檢查版本、下載（如有需要）、然後執行工具。第一次下載某個工具時會跳出一個小視窗顯示進度，之後同版本再啟動就不會再出現。</li>
-        <li>Launcher 之後有更新時會自動在背景下載並替換自己，不需要手動處理；只有這次的安裝需要手動下載一次。</li>
+             that message text changes, update it here too (in all three
+             languages' index.setup.step2 in assets/i18n.js). -->
+        <li data-i18n-html="index.setup.step2">雙擊執行一次，跳出「設定完成」的小提示視窗後按確定——這一步會把 <code>real-toolbox://</code> 這個連結類型註冊到你的電腦。</li>
+        <li data-i18n="index.setup.step3">回到這頁點下方任一工具的「啟動」，瀏覽器會詢問是否開啟 real-toolbox 連結，選「開啟」即可，通常之後不會再問。</li>
+        <li data-i18n="index.setup.step4">Launcher 會自動檢查版本、下載（如有需要）、然後執行工具。第一次下載某個工具時會跳出一個小視窗顯示進度，之後同版本再啟動就不會再出現。</li>
+        <li data-i18n="index.setup.step5">Launcher 之後有更新時會自動在背景下載並替換自己，不需要手動處理；只有這次的安裝需要手動下載一次。</li>
       </ol>
-      <p class="setup-note">
+      <p class="setup-note" data-i18n-html="index.setup.note1">
         工具預設安裝在 <code>D:\___ARC_MT_TOOLS___</code>。想改路徑可執行：
         <code>real-toolbox-launcher.exe --set-install-dir D:\你想要的路徑</code>
       </p>
@@ -117,10 +128,10 @@
            actual bug - see launcher.py's LOCK_TTL_SECONDS/module docstring
            and app.js's LAUNCH_FEEDBACK_TIMEOUT_MS comment for the two other
            places this same discovery shaped the design. -->
-      <p class="setup-note">
+      <p class="setup-note" data-i18n="index.setup.note2">
         第一次執行全新的 Launcher 或全新下載的工具時，防毒軟體可能會先掃描檔案，感覺上會多等幾秒鐘，這是正常現象，不代表沒有啟動成功；同一個檔案之後再啟動就不會再等。
       </p>
-      <button class="dismiss-setup-btn" id="dismiss-setup">✓ 已完成安裝，不再顯示</button>
+      <button class="dismiss-setup-btn" id="dismiss-setup" data-i18n="index.setup.dismissBtn">✓ 已完成安裝，不再顯示</button>
     </div>
   </details>
 
@@ -132,9 +143,10 @@
   <!-- Shown by app.js only if manifest.json legitimately has zero tools, or
        if manifest.json itself failed to load at all (in which case its text
        is replaced with the actual error - see loadTools()). -->
-  <p class="empty-state" id="empty-state" hidden>目前還沒有工具。</p>
+  <p class="empty-state" id="empty-state" hidden data-i18n="index.emptyState">目前還沒有工具。</p>
 </main>
 
+<script src="assets/i18n.js"></script>
 <script src="assets/app.js"></script>
 </body>
 </html>
