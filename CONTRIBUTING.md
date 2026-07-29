@@ -2,6 +2,8 @@
 
 想讓別人可以直接從 real-toolbox 網頁點一下就啟動你的工具，只要照著下面的步驟，把你的 GitLab repo 準備好、把資訊丟給 real-toolbox 維護者加進 `manifest.json` 就好。你的工具本身完全不用改，Launcher 不會有任何針對特定工具寫死的邏輯。
 
+> 如果你想請自己的 AI Agent（例如 Claude Code）幫你跑完前置作業，直接把 [AGENT_ONBOARDING.md](AGENT_ONBOARDING.md) 交給它就好，那份文件是專門寫給 Agent 執行用的，跑完會直接產出一份可以貼給維護者的欄位區塊。
+
 ## 1. Repo 要能匿名下載
 
 你的工具 repo（可以跟 real-toolbox 分開放）必須設成 **Public**，這樣 Launcher 才能在不登入的情況下下載檔案。如果目前是放在需要登入的私有專案下，參考 `sfisemulator_arcadyan` 的作法：把 repo 搬到一個獨立的 public 專案（例如 `http://10.118.53.32/tools/<your-project>`），跟内部私有的開發用 repo 分開。

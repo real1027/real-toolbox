@@ -166,6 +166,7 @@ const TRANSLATIONS = {
       help: {
         title: '有問題怎麼辦？',
         p1: '照著上面步驟卡關、或不確定怎麼設定 GitLab Release，直接找 MT Toolbox 維護者（<code>real_chang</code>）就好。',
+        p2: '想請 AI Agent 幫你跑完前置作業也可以——把 <a href="https://github.com/real1027/real-toolbox/blob/main/AGENT_ONBOARDING.md" target="_blank" rel="noopener">AGENT_ONBOARDING.md</a> 交給你的 Agent，跑完會直接產出一份可以貼給維護者的欄位區塊。',
       },
     },
   },
@@ -304,6 +305,7 @@ const TRANSLATIONS = {
       help: {
         title: 'Something not working?',
         p1: 'If you get stuck on any of the steps above, or aren’t sure how to set up a GitLab Release, just reach out to the MT Toolbox maintainer (<code>real_chang</code>).',
+        p2: 'You can also hand this whole process to your own AI agent - give it <a href="https://github.com/real1027/real-toolbox/blob/main/AGENT_ONBOARDING.md" target="_blank" rel="noopener">AGENT_ONBOARDING.md</a> and it will produce a ready-to-send field block for the maintainer.',
       },
     },
   },
@@ -442,6 +444,7 @@ const TRANSLATIONS = {
       help: {
         title: 'Gặp vấn đề thì làm sao?',
         p1: 'Nếu bị kẹt ở bước nào trên đây, hoặc không chắc cách thiết lập GitLab Release, cứ liên hệ trực tiếp với người quản trị MT Toolbox (<code>real_chang</code>).',
+        p2: 'Bạn cũng có thể nhờ AI Agent của mình thực hiện toàn bộ quy trình này - đưa <a href="https://github.com/real1027/real-toolbox/blob/main/AGENT_ONBOARDING.md" target="_blank" rel="noopener">AGENT_ONBOARDING.md</a> cho Agent, nó sẽ tạo ra một khối thông tin sẵn sàng để gửi cho người quản trị.',
       },
     },
   },
