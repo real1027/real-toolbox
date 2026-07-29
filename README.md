@@ -92,7 +92,7 @@ real-toolbox-launcher.exe --set-install-dir D:\你想要的路徑
 - `type: "link"` + `url`：純外部連結（例如儀器租借系統、Error Code 查詢系統），這種工具本身就是一個網頁系統，不透過 Launcher 下載執行，卡片按鈕會顯示「前往」，直接開新分頁連過去。
 - `sub_tools: [{ id, name, exe_name }, ...]`：一個工具裡有多個獨立進入點（例如 LED AOI 的 CAM / ROI / LED 三支程式），共用同一份 `download_url`/`latest_version`（同一個 zip 裡打包三支 exe），畫面上會顯示一欄多顆啟動按鈕，各自對應 `real-toolbox://launch/<id>/<sub-id>`。
 
-**目前可用的圖示**（定義在 [assets/app.js](assets/app.js) 的 `ICONS`，全部來自 [Lucide](https://lucide.dev)，ISC 授權）：`camera`、`database`、`file-diff`、`box`、`radio`、`clipboard-check`、`search`、`wrench`、`repeat`。想用清單以外的 icon，只要是 Lucide 官網上找得到的都可以加，加的地方就是 `assets/app.js` 的 `ICONS` 物件。
+**目前可用的圖示**（定義在 [assets/app.js](assets/app.js) 的 `ICONS`，全部來自 [Lucide](https://lucide.dev)，ISC 授權）：`camera`、`database`、`file-diff`、`box`、`radio`、`clipboard-check`、`search`、`circuit-board`、`wrench`、`repeat`。想用清單以外的 icon，只要是 Lucide 官網上找得到的都可以加，加的地方就是 `assets/app.js` 的 `ICONS` 物件。
 
 **注意：目前沒有「公司內部／個人」這種分類欄位。** 這個欄位最初有規劃過（`category: internal | personal`），但這個部署的實際用途上所有工具都是產測開發工具，這個區分沒有意義，所以連同網頁上的分類 tab、卡片上的分類標籤都已經整個拿掉了。
 
@@ -218,6 +218,8 @@ Launcher 本身也會檢查自己是不是最新版，做法跟工具版本比�
 ## 想把自己的工具接進來？
 
 看 [CONTRIBUTING.md](CONTRIBUTING.md)（repo 內部版本）或 [onboarding.html](onboarding.html)（給一般使用者看的完整版，網頁上「工具上架說明」連結點進去的就是這份）——裡面說明你的 GitLab repo/Release 要怎麼準備、要提供哪些欄位、多進入點工具跟純外部連結工具要怎麼處理。
+
+如果想請自己的 AI Agent 代勞跑完整個前置作業（開 public repo、打包、建 Release、驗證匿名下載），把 [AGENT_ONBOARDING.md](AGENT_ONBOARDING.md) 交給它——這份文件是寫給 Agent 執行用的，跑完會直接產出一份可以貼給維護者的欄位區塊。
 
 ## 本機開發測試
 
