@@ -19,10 +19,13 @@
 // app.js"> in index.html, so it must run in every evergreen browser as-is.
 //
 // Depends on assets/i18n.js being loaded first (see index.html's <script>
-// order) for the t()/escapeHtml-adjacent translation helper and the
+// order) for the t()/getLang()/DEFAULT_LANG translation helpers and the
 // mt-toolbox-langchange event this file listens for - card chrome text like
 // "啟動"/"即將推出" is looked up via t() at render time, NOT hard-coded
-// Chinese, even though it reads that way in this file's own comments.
+// Chinese, even though it reads that way in this file's own comments. A
+// tool's own name/description is looked up via localize() (see its doc
+// comment below), which supports either a plain string or a per-language
+// object - translating a tool's own data is optional, not required.
 // =============================================================================
 
 // Icon path data for every icon a tool's manifest entry can reference via its
@@ -91,6 +94,24 @@ function escapeHtml(str) {
   ));
 }
 
+// manifest.json's "name"/"description" (and each sub_tool's "name") accept
+// either a plain string (shown as-is regardless of language - the original,
+// still-supported format so onboarding a tool never *requires* trilingual
+// copy) or an object keyed by language code, e.g. { "zh": "...", "en": "...",
+// "vi": "..." }, in which case the text shown follows the page's current
+// language (see assets/i18n.js getLang()), falling back to DEFAULT_LANG and
+// then to whichever language happens to be present if the current one is
+// missing - a tool that only bothered translating two of the three
+// languages should never render blank text for the third.
+function localize(field) {
+  if (field == null) return '';
+  if (typeof field === 'string') return field;
+  const lang = getLang();
+  if (field[lang]) return field[lang];
+  if (field[DEFAULT_LANG]) return field[DEFAULT_LANG];
+  return Object.values(field).find(Boolean) || '';
+}
+
 // The little icon/initials tile at the top of each card. Prefers the
 // manifest's "icon" field (a Lucide icon name - see ICONS) when present and
 // recognized; falls back to the tool's own first two characters (upper-
@@ -101,7 +122,7 @@ function escapeHtml(str) {
 function cardArt(tool) {
   const icon = tool.icon && svgIcon(tool.icon, 28, 1.75);
   if (icon) return icon;
-  return `<span>${escapeHtml(tool.name.trim().slice(0, 2).toUpperCase())}</span>`;
+  return `<span>${escapeHtml(localize(tool.name).trim().slice(0, 2).toUpperCase())}</span>`;
 }
 
 // Shared markup for any button that launches something via the Launcher
@@ -162,7 +183,7 @@ function footerContent(tool) {
 
   if (Array.isArray(tool.sub_tools) && tool.sub_tools.length) {
     const buttons = tool.sub_tools
-      .map((sub) => launchButton(`real-toolbox://launch/${encodeURIComponent(tool.id)}/${encodeURIComponent(sub.id)}`, sub.name))
+      .map((sub) => launchButton(`real-toolbox://launch/${encodeURIComponent(tool.id)}/${encodeURIComponent(sub.id)}`, localize(sub.name)))
       .join('');
     return `<div class="sub-tool-buttons">${buttons}</div>`;
   }
@@ -187,9 +208,9 @@ function toolCard(tool) {
     <div class="card-art" aria-hidden="true">${cardArt(tool)}</div>
     <div class="card-body">
       <div class="card-top">
-        <h3 class="card-title">${escapeHtml(tool.name)}</h3>
+        <h3 class="card-title">${escapeHtml(localize(tool.name))}</h3>
       </div>
-      ${tool.description ? `<p class="card-desc">${escapeHtml(tool.description)}</p>` : ''}
+      ${tool.description ? `<p class="card-desc">${escapeHtml(localize(tool.description))}</p>` : ''}
       <div class="card-footer">
         ${footerContent(tool)}
       </div>
@@ -380,12 +401,11 @@ function wireLaunchFeedback() {
 // deployment needs to see which one it is.
 // Tools fetched once and kept around (rather than re-fetching manifest.json
 // every time) specifically so switching language (see the
-// mt-toolbox-langchange listener below) can re-render every card's chrome
-// text (即將推出/啟動/前往 etc. - see footerContent) in the new language
-// without an unnecessary extra network round-trip. Tool names/descriptions
-// themselves don't change with the language switch (see this file's
-// top-of-file comment on what is/isn't translated) - only re-running
-// toolCard() picks up the new t() results for the fixed UI chrome inside it.
+// mt-toolbox-langchange listener below) can re-render every card - both its
+// fixed chrome text (即將推出/啟動/前往 etc. - see footerContent) via t(),
+// and its name/description via localize() if the tool provided per-language
+// text (see localize()'s doc comment) - without an unnecessary extra network
+// round-trip.
 let cachedTools = null;
 
 function renderCards() {

@@ -3,13 +3,16 @@
 // onboarding.html. Loaded before each page's own script (app.js for
 // index.html; onboarding.html has no other script at all).
 //
-// Deliberately does NOT translate manifest.json's per-tool "name"/
-// "description" fields - those stay exactly as each tool's onboarder wrote
-// them. Only this site's own fixed chrome (headings, buttons, instructions,
-// the onboarding guide's prose) is translated - translating every tool's
-// data in three languages would make onboarding a new tool require three
-// times the writing, which isn't worth it for what's currently a small,
-// slow-changing tool list. See TRANSLATIONS below for what IS covered.
+// This file's TRANSLATIONS dictionary only covers the site's own fixed
+// chrome (headings, buttons, instructions, the onboarding guide's prose) -
+// see TRANSLATIONS below for what IS covered. manifest.json's per-tool
+// "name"/"description" (and each sub_tool's "name") are a separate,
+// OPTIONAL mechanism: a tool's onboarder may write a plain string (shown
+// as-is in every language - no translation work required) or an object
+// keyed by language code (e.g. { "zh": "...", "en": "...", "vi": "..." }),
+// resolved at render time by assets/app.js's localize(). Trilingual tool
+// data is opt-in on purpose - requiring it for every future tool would make
+// onboarding cost three times the writing.
 //
 // How a page uses this:
 //   - Any element whose text should be translated gets data-i18n="some.key"
@@ -109,8 +112,8 @@ const TRANSLATIONS = {
         title: 'Step 5：把這些資訊交給 MT Toolbox 維護者',
         th1: '欄位', th2: '說明', th3: '範例',
         row1c1: 'id', row1c2: '工具的唯一代號，只能用英數字和底線，之後會出現在啟動連結裡',
-        row2c1: '顯示名稱', row2c2: '畫面上要顯示的名稱',
-        row3c1: '簡短描述', row3c2: '一兩句話說明工具做什麼；可以直接給 README 內容，維護者會幫忙摘要',
+        row2c1: '顯示名稱', row2c2: '畫面上要顯示的名稱；可以只給一種語言，也可以額外提供英文／越南文版本，畫面會依使用者選的語言顯示對應版本，缺漏的語言自動顯示中文',
+        row3c1: '簡短描述', row3c2: '一兩句話說明工具做什麼；可以直接給 README 內容，維護者會幫忙摘要。同樣可以只給一種語言，或額外提供英文／越南文版本',
         row4c1: '版本號', row4c2: '對應你目前的 release tag 就好（例如 1.0.0）；這個欄位只影響網頁上顯示的版本字樣，之後會過時也沒關係，見下方說明',
         row5c1: '下載連結', row5c2: 'Step 3 做出來的 permalink 網址',
         row6c1: 'exe 檔名', row6c2: 'zip 解壓後真正要執行的檔案名稱',
@@ -127,6 +130,8 @@ const TRANSLATIONS = {
         clipboardCheck: '報告／檢查清單／認證',
         box: '一般設備／打包',
         wrench: '維修／工具',
+        search: '查詢／搜尋',
+        circuitBoard: '電路板／硬體控制',
         p2: '想要清單以外的圖示也可以，跟維護者說一聲，只要 Lucide 官網上找得到的 icon 都能加。',
       },
       subTools: {
@@ -248,8 +253,8 @@ const TRANSLATIONS = {
         title: 'Step 5: Send this information to the MT Toolbox maintainer',
         th1: 'Field', th2: 'Description', th3: 'Example',
         row1c1: 'id', row1c2: 'A unique identifier - letters/numbers/underscores only. Shows up in the launch link.',
-        row2c1: 'Display name', row2c2: 'The name shown on the page',
-        row3c1: 'Short description', row3c2: 'A sentence or two about what the tool does - README content works fine, the maintainer will summarize it',
+        row2c1: 'Display name', row2c2: 'The name shown on the page. A single language is fine, or you can also provide English/Vietnamese versions - the page shows whichever the user has selected, falling back to Chinese for any missing language',
+        row3c1: 'Short description', row3c2: 'A sentence or two about what the tool does - README content works fine, the maintainer will summarize it. Also fine as a single language, or with English/Vietnamese versions added',
         row4c1: 'Version number', row4c2: 'Your current release tag is fine (e.g. 1.0.0). This only affects the version text shown on the page - it’s OK if it goes stale later, see below',
         row5c1: 'Download link', row5c2: 'The permalink URL from Step 3',
         row6c1: 'exe filename', row6c2: 'The actual file to run after the zip is extracted',
@@ -266,6 +271,8 @@ const TRANSLATIONS = {
         clipboardCheck: 'Reports / checklists / certification',
         box: 'General equipment / packaging',
         wrench: 'Maintenance / tools',
+        search: 'Search / lookup',
+        circuitBoard: 'Circuit board / hardware control',
         p2: 'Icons outside this list are fine too - just mention it to the maintainer; anything findable on the Lucide site can be added.',
       },
       subTools: {
@@ -387,8 +394,8 @@ const TRANSLATIONS = {
         title: 'Bước 5: Gửi các thông tin sau cho người quản trị MT Toolbox',
         th1: 'Trường thông tin', th2: 'Mô tả', th3: 'Ví dụ',
         row1c1: 'id', row1c2: 'Mã định danh duy nhất của công cụ, chỉ dùng chữ/số/gạch dưới, sau này sẽ xuất hiện trong liên kết khởi chạy',
-        row2c1: 'Tên hiển thị', row2c2: 'Tên sẽ hiển thị trên màn hình',
-        row3c1: 'Mô tả ngắn', row3c2: 'Một hai câu mô tả công cụ làm gì; có thể đưa thẳng nội dung README, người quản trị sẽ tóm tắt giúp',
+        row2c1: 'Tên hiển thị', row2c2: 'Tên sẽ hiển thị trên màn hình. Có thể chỉ cung cấp một ngôn ngữ, hoặc bổ sung thêm bản tiếng Anh／tiếng Việt - trang sẽ hiển thị theo ngôn ngữ người dùng chọn, ngôn ngữ nào thiếu sẽ tự động hiển thị tiếng Trung',
+        row3c1: 'Mô tả ngắn', row3c2: 'Một hai câu mô tả công cụ làm gì; có thể đưa thẳng nội dung README, người quản trị sẽ tóm tắt giúp. Cũng có thể chỉ cung cấp một ngôn ngữ, hoặc bổ sung thêm bản tiếng Anh／tiếng Việt',
         row4c1: 'Số phiên bản', row4c2: 'Dùng đúng tag release hiện tại là được (ví dụ 1.0.0); trường này chỉ ảnh hưởng đến chữ hiển thị trên trang, sau này cũ đi cũng không sao, xem giải thích bên dưới',
         row5c1: 'Liên kết tải xuống', row5c2: 'URL permalink tạo ở Bước 3',
         row6c1: 'Tên file exe', row6c2: 'Tên file thực sự cần chạy sau khi giải nén zip',
@@ -405,6 +412,8 @@ const TRANSLATIONS = {
         clipboardCheck: 'Báo cáo／danh sách kiểm tra／chứng nhận',
         box: 'Thiết bị thông thường／đóng gói',
         wrench: 'Bảo trì／công cụ',
+        search: 'Tra cứu／tìm kiếm',
+        circuitBoard: 'Bo mạch／điều khiển phần cứng',
         p2: 'Muốn dùng biểu tượng ngoài danh sách này cũng được, chỉ cần báo cho người quản trị - bất kỳ icon nào tìm thấy trên trang Lucide đều có thể thêm vào.',
       },
       subTools: {

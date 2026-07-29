@@ -77,7 +77,7 @@ real-toolbox-launcher.exe --set-install-dir D:\你想要的路徑
 ```jsonc
 {
   "id": "sfisemulator_arcadyan",     // 唯一代號，同時是 real-toolbox://launch/<id> 的 <id>
-  "name": "SFIS Emulator",           // 畫面顯示名稱
+  "name": "SFIS Emulator",           // 畫面顯示名稱，見下方「name／description 的三語寫法」
   "icon": "database",                // Lucide icon 名稱，見下方「目前可用的圖示」
   "description": "...",              // 卡片上的簡短說明
   "latest_version": "1.3.1",         // 對應 Release tag（純顯示用，見下方版本比對機制）
@@ -91,6 +91,20 @@ real-toolbox-launcher.exe --set-install-dir D:\你想要的路徑
 - `status: "coming_soon"`：卡片顯示成停用狀態（灰階、按鈕不可點、顯示「即將推出」標籤）。用於已經決定要收錄、但還沒有真正的 `download_url`/`exe_name` 可以填的佔位項目。
 - `type: "link"` + `url`：純外部連結（例如儀器租借系統、Error Code 查詢系統），這種工具本身就是一個網頁系統，不透過 Launcher 下載執行，卡片按鈕會顯示「前往」，直接開新分頁連過去。
 - `sub_tools: [{ id, name, exe_name }, ...]`：一個工具裡有多個獨立進入點（例如 LED AOI 的 CAM / ROI / LED 三支程式），共用同一份 `download_url`/`latest_version`（同一個 zip 裡打包三支 exe），畫面上會顯示一欄多顆啟動按鈕，各自對應 `real-toolbox://launch/<id>/<sub-id>`。
+
+**`name`／`description`（以及每個 `sub_tools` 項目的 `name`）的三語寫法（選填）：** 兩種格式都合法：
+
+```jsonc
+"name": "LED AOI 檢測工具"   // 純文字：三種語言畫面上都顯示同一段文字（原本的寫法，繼續有效）
+
+"name": {                    // 三語物件：畫面依使用者目前選的語言顯示對應版本
+  "zh": "LED AOI 檢測工具",
+  "en": "LED AOI Inspection Tool",
+  "vi": "Công cụ kiểm tra AOI đèn LED"
+}
+```
+
+三語物件裡缺哪個語言，畫面會自動退回顯示中文（`assets/app.js` 的 `localize()`）。**這個欄位是選填的加強功能，不是強制規定**——上架新工具時只給一種語言完全沒問題，不會因為沒翻譯而出錯或顯示空白，避免每上架一個新工具都要多準備兩份文案。
 
 **目前可用的圖示**（定義在 [assets/app.js](assets/app.js) 的 `ICONS`，全部來自 [Lucide](https://lucide.dev)，ISC 授權）：`camera`、`database`、`file-diff`、`box`、`radio`、`clipboard-check`、`search`、`circuit-board`、`wrench`、`repeat`。想用清單以外的 icon，只要是 Lucide 官網上找得到的都可以加，加的地方就是 `assets/app.js` 的 `ICONS` 物件。
 
@@ -200,7 +214,7 @@ Launcher 本身也會檢查自己是不是最新版，做法跟工具版本比�
 
 `index.html`、`onboarding.html` 這兩頁的**固定文字**（標題、按鈕、安裝說明、上架教學全文）都支援中／英／越三語切換，右上角有個小按鈕群組可以切換，選擇的語言存在 `localStorage`（跨頁面、同瀏覽器記住），並且會反映在 `<html lang="...">` 上方便螢幕閱讀器。
 
-**刻意不翻譯的部分：`manifest.json` 裡每個工具自己的 `name`／`description`。** 這是特意的決定——如果連工具資料都要三語，以後每上架一個新工具都要準備三份文案，維護成本會拖慢整個上架流程；固定文字（多語言只需要寫一次，不會隨工具增減而變動）跟工具本身的資料（每上架一個新工具都要重新提供）性質不一樣，所以只做前者。卡片上工具名稱／描述固定顯示原文（通常是中文或英文），只有卡片上的「啟動」「即將推出」「前往」這類固定按鈕文字會跟著切換。
+**`manifest.json` 裡每個工具自己的 `name`／`description` 的三語支援是選填的**（見上方「manifest.json 欄位完整說明」的「三語寫法」）——固定文字（頁面 chrome，只需要寫一次，不會隨工具增減而變動）一定是三語；工具自己的資料則由上架者自行決定要不要多花力氣準備三份文案，只給一種語言完全合法，不會顯示空白或出錯。目前收錄的工具已經補上英文／越南文草稿，實際上線給越南廠區同仁使用前建議請當地同仁校對過一次。
 
 實作方式：`assets/i18n.js`（`index.html`／`onboarding.html` 共用）裡一份三語對照字典，頁面元素標 `data-i18n="some.key"`（純文字）或 `data-i18n-html="some.key"`（翻譯內容本身需要包住 `<code>`／`<a>` 之類行內標籤時用這個，兩種寫法在三語字典裡個別維護）。切換語言時，`assets/app.js` 額外監聽一個自訂事件重新畫一次工具卡片（因為卡片上的固定文字要跟著換，但工具名稱／描述本身不變）。
 

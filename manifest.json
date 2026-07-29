@@ -4,32 +4,56 @@
       "id": "sfisemulator_arcadyan",
       "name": "SFIS Emulator",
       "icon": "database",
-      "description": "Python 版 SFIS 檔案交換模擬器，透過 REQUEST/RESPONSE/RESULT/FEEDBACK 資料夾與產測程式交握，並用 SFIS_DB.csv 模擬 SFIS response。",
+      "description": {
+        "zh": "Python 版 SFIS 檔案交換模擬器，透過 REQUEST/RESPONSE/RESULT/FEEDBACK 資料夾與產測程式交握，並用 SFIS_DB.csv 模擬 SFIS response。",
+        "en": "A Python-based SFIS file-exchange emulator that hand-shakes with the production-test program through REQUEST/RESPONSE/RESULT/FEEDBACK folders, using SFIS_DB.csv to simulate SFIS responses.",
+        "vi": "Trình giả lập trao đổi tệp SFIS viết bằng Python, bắt tay với chương trình kiểm tra sản xuất qua các thư mục REQUEST/RESPONSE/RESULT/FEEDBACK, dùng SFIS_DB.csv để giả lập phản hồi SFIS."
+      },
       "latest_version": "1.3.2",
       "download_url": "http://10.118.53.32/tools/sfisemulator_arcadyan/-/releases/permalink/latest/downloads/sfisemulator_arcadyan.zip",
       "exe_name": "SfisSimulator.exe"
     },
     {
       "id": "ledtool_arcadyan",
-      "name": "LED AOI 檢測工具",
+      "name": {
+        "zh": "LED AOI 檢測工具",
+        "en": "LED AOI Inspection Tool",
+        "vi": "Công cụ kiểm tra AOI đèn LED"
+      },
       "icon": "camera",
-      "description": "LED 產品外觀/發光顏色自動光學檢測（AOI）工具組，含相機能力偵測、ROI 訓練、即時檢測三個階段。",
+      "description": {
+        "zh": "LED 產品外觀/發光顏色自動光學檢測（AOI）工具組，含相機能力偵測、ROI 訓練、即時檢測三個階段。",
+        "en": "An automated optical inspection (AOI) toolset for LED product appearance and light color, covering three stages: camera capability detection, ROI training, and real-time inspection.",
+        "vi": "Bộ công cụ kiểm tra quang học tự động (AOI) cho ngoại quan và màu sắc phát sáng của sản phẩm LED, gồm ba giai đoạn: dò khả năng camera, huấn luyện ROI và kiểm tra thời gian thực."
+      },
       "latest_version": "2.6.6",
       "download_url": "http://10.118.53.32/tools/ledtool_arcadyan/-/releases/permalink/latest/downloads/LEDTool_Arcadyan.zip",
       "sub_tools": [
         {
           "id": "cam",
-          "name": "CAM 相機偵測",
+          "name": {
+            "zh": "CAM 相機偵測",
+            "en": "CAM Camera Detection",
+            "vi": "CAM Dò camera"
+          },
           "exe_name": "CAM.exe"
         },
         {
           "id": "roi",
-          "name": "ROI 框選訓練",
+          "name": {
+            "zh": "ROI 框選訓練",
+            "en": "ROI Training",
+            "vi": "ROI Huấn luyện vùng chọn"
+          },
           "exe_name": "ROI.exe"
         },
         {
           "id": "led",
-          "name": "LED 燈號偵測",
+          "name": {
+            "zh": "LED 燈號偵測",
+            "en": "LED Detection",
+            "vi": "LED Dò đèn"
+          },
           "exe_name": "LED.exe"
         }
       ]
@@ -38,7 +62,11 @@
       "id": "relay_board_bench_checker",
       "name": "Relay Board Bench Checker",
       "icon": "circuit-board",
-      "description": "手動檢測 Relay/GPIO 控制板功能是否正常的桌面工具。連線後自動偵測板子支援的指令，動態產生對應分頁，可逐路測試 Relay ON/OFF、GPIO 輸出/輸入、ADC 量測，以及 INA219/INA233/MLX90614 感測器讀值，操作記錄會即時顯示於畫面。",
+      "description": {
+        "zh": "手動檢測 Relay/GPIO 控制板功能是否正常的桌面工具。連線後自動偵測板子支援的指令，動態產生對應分頁，可逐路測試 Relay ON/OFF、GPIO 輸出/輸入、ADC 量測，以及 INA219/INA233/MLX90614 感測器讀值，操作記錄會即時顯示於畫面。",
+        "en": "A desktop tool for manually checking whether a Relay/GPIO control board is functioning correctly. After connecting, it automatically detects the commands the board supports and dynamically generates matching tabs, letting you test Relay ON/OFF channel by channel, GPIO input/output, ADC measurements, and INA219/INA233/MLX90614 sensor readings, with an operation log shown live on screen.",
+        "vi": "Công cụ desktop để kiểm tra thủ công xem bo mạch điều khiển Relay/GPIO có hoạt động bình thường hay không. Sau khi kết nối, công cụ tự động dò các lệnh mà bo mạch hỗ trợ và tạo các tab tương ứng, cho phép kiểm tra từng kênh Relay ON/OFF, GPIO đầu vào/ra, đo ADC, cũng như đọc giá trị cảm biến INA219/INA233/MLX90614, nhật ký thao tác hiển thị trực tiếp trên màn hình."
+      },
       "latest_version": "1.0.0",
       "download_url": "http://10.118.53.32/tools/relayboardbenchchecker_arcadyan/-/releases/permalink/latest/downloads/relay_board_bench_checker.zip",
       "exe_name": "relayctl-gui.exe"
@@ -47,7 +75,11 @@
       "id": "log_review_tool",
       "name": "Log Review Tool",
       "icon": "file-diff",
-      "description": "任意比對兩份產測 LOG，確認 LOG 內容是否正常。",
+      "description": {
+        "zh": "任意比對兩份產測 LOG，確認 LOG 內容是否正常。",
+        "en": "Compare any two production-test LOG files to check whether their content is normal.",
+        "vi": "So sánh hai tệp LOG kiểm tra sản xuất bất kỳ để xác nhận nội dung có bình thường hay không."
+      },
       "status": "coming_soon",
       "latest_version": "",
       "download_url": "",
@@ -55,17 +87,33 @@
     },
     {
       "id": "error_code_search_system",
-      "name": "Error Code 查詢系統",
+      "name": {
+        "zh": "Error Code 查詢系統",
+        "en": "Error Code Search System",
+        "vi": "Hệ thống tra cứu Error Code"
+      },
       "icon": "search",
-      "description": "產測 Error Code 查詢系統：關鍵字搜尋、AI 自然語言查詢、分類瀏覽，支援中/英/越文介面，並可新增、修改、刪除 Error Code 資料。",
+      "description": {
+        "zh": "產測 Error Code 查詢系統：關鍵字搜尋、AI 自然語言查詢、分類瀏覽，支援中/英/越文介面，並可新增、修改、刪除 Error Code 資料。",
+        "en": "A production-test Error Code search system: keyword search, AI natural-language query, and category browsing, with a Chinese/English/Vietnamese interface and the ability to add, edit, and delete Error Code entries.",
+        "vi": "Hệ thống tra cứu Error Code kiểm tra sản xuất: tìm theo từ khóa, truy vấn bằng ngôn ngữ tự nhiên với AI, duyệt theo danh mục, giao diện hỗ trợ tiếng Trung/Anh/Việt, và có thể thêm, sửa, xóa dữ liệu Error Code."
+      },
       "type": "link",
       "url": "https://lobbster1234-error-code-search.hf.space/"
     },
     {
       "id": "instrument_rental_system",
-      "name": "儀器設備租借系統",
+      "name": {
+        "zh": "儀器設備租借系統",
+        "en": "Instrument Rental System",
+        "vi": "Hệ thống cho thuê thiết bị"
+      },
       "icon": "box",
-      "description": "儀器設備租借申請入口。",
+      "description": {
+        "zh": "儀器設備租借申請入口。",
+        "en": "Portal for applying to rent instruments and equipment.",
+        "vi": "Cổng đăng ký thuê thiết bị, dụng cụ đo."
+      },
       "type": "link",
       "url": "https://lobbster1234-ai.github.io/mt-equipment-system/"
     },
@@ -73,7 +121,11 @@
       "id": "auto_pathloss_generator",
       "name": "Auto Pathloss Generator",
       "icon": "radio",
-      "description": "自動產出 RF 測試使用的 cable loss 產生器。",
+      "description": {
+        "zh": "自動產出 RF 測試使用的 cable loss 產生器。",
+        "en": "Automatically generates cable-loss (pathloss) tables for RF testing.",
+        "vi": "Tự động tạo bảng cable loss (pathloss) dùng cho kiểm tra RF."
+      },
       "status": "coming_soon",
       "latest_version": "",
       "download_url": "",
@@ -81,9 +133,17 @@
     },
     {
       "id": "erp_coc_test_tool",
-      "name": "ErP/CoC 測試工具",
+      "name": {
+        "zh": "ErP/CoC 測試工具",
+        "en": "ErP/CoC Test Tool",
+        "vi": "Công cụ kiểm tra ErP/CoC"
+      },
       "icon": "clipboard-check",
-      "description": "協助認證部門產生 ErP/CoC 相關測試報告。",
+      "description": {
+        "zh": "協助認證部門產生 ErP/CoC 相關測試報告。",
+        "en": "Helps the certification team generate ErP/CoC-related test reports.",
+        "vi": "Hỗ trợ bộ phận chứng nhận tạo báo cáo kiểm tra liên quan đến ErP/CoC."
+      },
       "status": "coming_soon",
       "latest_version": "",
       "download_url": "",
