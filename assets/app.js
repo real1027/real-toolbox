@@ -163,13 +163,10 @@ function footerContent(tool) {
     const buttons = tool.sub_tools
       .map((sub) => launchButton(`real-toolbox://launch/${encodeURIComponent(tool.id)}/${encodeURIComponent(sub.id)}`, sub.name))
       .join('');
-    return `<span class="version-tag">v${escapeHtml(tool.latest_version)}</span><div class="sub-tool-buttons">${buttons}</div>`;
+    return `<div class="sub-tool-buttons">${buttons}</div>`;
   }
 
-  return `
-    <span class="version-tag">v${escapeHtml(tool.latest_version)}</span>
-    ${launchButton(`real-toolbox://launch/${encodeURIComponent(tool.id)}`, t('index.card.launch'))}
-  `;
+  return launchButton(`real-toolbox://launch/${encodeURIComponent(tool.id)}`, t('index.card.launch'));
 }
 
 // Builds one <article class="card"> DOM element for a single manifest.json

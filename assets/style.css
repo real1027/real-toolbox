@@ -404,11 +404,18 @@ code {
   flex: 1;
 }
 
+/* justify-content: flex-end (not space-between) because a normal tool's
+   footer now has only ONE child (just the launch button - no version
+   number is shown anymore, see app.js's footerContent) - space-between
+   would pin a lone flex item to the start instead of the end. The
+   coming_soon/link cases still have two children (a status tag + a
+   button); flex-end simply groups both toward the right instead of
+   spreading them across the card, which still reads fine. */
 .card-footer {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 0.5rem;
   margin-top: 0.4rem;
 }
