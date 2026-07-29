@@ -35,6 +35,15 @@
       ]
     },
     {
+      "id": "relay_board_bench_checker",
+      "name": "Relay Board Bench Checker",
+      "icon": "circuit-board",
+      "description": "手動檢測 Relay/GPIO 控制板功能是否正常的桌面工具。連線後自動偵測板子支援的指令，動態產生對應分頁，可逐路測試 Relay ON/OFF、GPIO 輸出/輸入、ADC 量測，以及 INA219/INA233/MLX90614 感測器讀值，操作記錄會即時顯示於畫面。",
+      "latest_version": "1.0.0",
+      "download_url": "http://10.118.53.32/tools/relayboardbenchchecker_arcadyan/-/releases/permalink/latest/downloads/relay_board_bench_checker.zip",
+      "exe_name": "relayctl-gui.exe"
+    },
+    {
       "id": "log_review_tool",
       "name": "Log Review Tool",
       "icon": "file-diff",
