@@ -76,14 +76,13 @@
       "name": "Log Review Tool",
       "icon": "file-diff",
       "description": {
-        "zh": "任意比對兩份產測 LOG，確認 LOG 內容是否正常。",
-        "en": "Compare any two production-test LOG files to check whether their content is normal.",
-        "vi": "So sánh hai tệp LOG kiểm tra sản xuất bất kỳ để xác nhận nội dung có bình thường hay không."
+        "zh": "產測 Log 自動比對與檢查工具，支援 Step Check、Verify Check、LED ROI Check、測試時間比較及 HTML Report，並支援中文、英文、越南文。",
+        "en": "An automated production-test log comparison and inspection tool, supporting Step Check, Verify Check, LED ROI Check, test-time comparison, and HTML report generation, with a Chinese/English/Vietnamese interface.",
+        "vi": "Công cụ tự động so sánh và kiểm tra log kiểm tra sản xuất, hỗ trợ Step Check, Verify Check, LED ROI Check, so sánh thời gian kiểm tra và tạo báo cáo HTML, hỗ trợ giao diện tiếng Trung, Anh, Việt."
       },
-      "status": "coming_soon",
-      "latest_version": "",
-      "download_url": "",
-      "exe_name": ""
+      "latest_version": "1.0.0",
+      "download_url": "http://10.118.53.32/Jean_ouo/log-review-tool/-/releases/permalink/latest/downloads/LogReviewTool.zip",
+      "exe_name": "LogReviewTool.exe"
     },
     {
       "id": "error_code_search_system",
