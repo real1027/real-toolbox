@@ -144,7 +144,7 @@ from pathlib import Path
 # below) - otherwise there was previously NO way for a user to ever find out
 # what version of the Launcher they were running at all, since nothing
 # printed it anywhere on its own.
-LAUNCHER_VERSION = "1.3.0"
+LAUNCHER_VERSION = "1.3.1"
 
 # --- Windows message-box helpers -------------------------------------------
 # There is no console (see module docstring), so these MB_* constants pick
@@ -1164,10 +1164,20 @@ def launch(tool_id, sub_id=None):
             progress.close()
 
     exe_path = find_exe(version_dir, exe_name)
-    # Popen (not run/call) - this Launcher process is not meant to wait
-    # around for the tool to exit; its job ends the moment the tool process
-    # has been started.
-    subprocess.Popen([str(exe_path)], cwd=str(exe_path.parent))
+    # os.startfile (NOT subprocess.Popen) - found the hard way via
+    # usb_com_lock, the first onboarded tool whose exe embeds a
+    # requireAdministrator manifest (it edits COM-port-related registry
+    # keys). subprocess.Popen calls CreateProcess directly, which does NOT
+    # know how to elevate a process - launching a to-be-elevated exe that
+    # way fails immediately with OSError: [WinError 740] (elevation
+    # required), silently, with no UAC prompt and nothing visible
+    # happening, which is exactly what "click 啟動, nothing happens" looks
+    # like from the user's side. os.startfile goes through ShellExecute
+    # under the hood instead, which DOES show the normal UAC consent prompt
+    # for an exe that asks for it, while behaving identically to Popen
+    # (fire-and-forget, no waiting) for the common case of a normal,
+    # non-elevated exe.
+    os.startfile(str(exe_path), cwd=str(exe_path.parent))
 
 
 def parse_launch_path(uri):
