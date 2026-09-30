@@ -144,7 +144,7 @@ from pathlib import Path
 # below) - otherwise there was previously NO way for a user to ever find out
 # what version of the Launcher they were running at all, since nothing
 # printed it anywhere on its own.
-LAUNCHER_VERSION = "1.3.1"
+LAUNCHER_VERSION = "1.3.2"
 
 # --- Windows message-box helpers -------------------------------------------
 # There is no console (see module docstring), so these MB_* constants pick
@@ -247,6 +247,17 @@ APP_DIR = resolve_app_dir()
 # deciding whether it's "safe" to overwrite existing files in place; the old
 # version's folder is simply deleted (see launch()) and a fresh one created.
 TOOLS_DIR = APP_DIR / "tools"
+# Where THIS launcher exe itself should permanently live, once registered -
+# see ensure_stable_launcher_location()'s docstring for why this exists at
+# all (in short: registering the protocol against wherever the user
+# happened to double-click from, typically their literal Downloads folder,
+# means a later Downloads cleanup can silently delete the one file every
+# real-toolbox:// link depends on, breaking everything with zero visible
+# error - this happened for real). Deliberately the same APP_DIR tools
+# already live under, not a separate location - one place to look, and it
+# already has a supported override (--set-install-dir/
+# REAL_TOOLBOX_INSTALL_DIR) instead of needing a second one invented here.
+LAUNCHER_STABLE_PATH = APP_DIR / "real-toolbox-launcher.exe"
 # Tracks, per tool id, the version + fingerprint that was last successfully
 # installed - see installed_record()/save_state() and the "Version +
 # fingerprint checking" section of the module docstring.
@@ -1260,49 +1271,32 @@ def set_install_dir(path):
     )
 
 
-def register_protocol():
-    """Teach Windows that real-toolbox://... links should be handed to this
-    exact running program - the one-time setup step every user runs once
-    (double-clicking the downloaded exe with no arguments does this - see
-    dispatch()) before any real-toolbox:// link on the web page will do
-    anything at all.
-
-    Writes under HKEY_CURRENT_USER (not HKEY_CLASSES_ROOT/HKEY_LOCAL_MACHINE)
-    deliberately - HKCU\\Software\\Classes is honored by Windows for URI
-    protocol handlers exactly like HKCR is, but does NOT require
-    administrator privileges to write to, unlike HKCR/HKLM. This keeps the
-    whole install process admin-free, matching the "just download and
-    double-click" experience described on the web page.
-
-    The registered command is built from sys.executable, i.e. wherever THIS
-    exact running copy of the program currently lives on disk - NOT a fixed
-    path. This means re-registering always points Windows at whichever copy
-    you just ran --register from; running --register from more than one
-    copy of the Launcher on the same machine (e.g. a developer's build
-    alongside a user's downloaded copy) will make the most recently
-    registered one "win". (This bit real-world testing during development:
-    repeatedly running --register against development builds on a shared
-    machine overwrote what a real end-to-end test had registered, which
-    looked like a mysterious regression but was actually just this
-    documented, expected behavior.)
-
-    getattr(sys, "frozen", False) distinguishes "running as a PyInstaller-
-    frozen .exe" from "running as a plain .py script via python.exe" -
-    only relevant for local development (the frozen case is what every real
-    user's copy actually is): a frozen exe's sys.executable IS the whole
+def _protocol_command_for(exe_path):
+    """Builds the Windows shell command string that should be registered for
+    the real-toolbox:// protocol, given the path of the exe that should
+    handle it. getattr(sys, "frozen", False) distinguishes "running as a
+    PyInstaller-frozen .exe" from "running as a plain .py script via
+    python.exe" - only relevant for local development (the frozen case is
+    what every real user's copy actually is): a frozen exe IS the whole
     program, so the registered command is just `"<exe>" "%1"`; a plain
     script needs `"<python.exe>" "<launcher.py path>" "%1"` so Windows knows
-    to invoke the interpreter with the script as its argument.
-
-    "%1" is the Windows placeholder that gets substituted with the actual
-    real-toolbox://... URI the user clicked - it becomes sys.argv[1] in
-    dispatch().
-    """
+    to invoke the interpreter with the script as its argument. "%1" is the
+    Windows placeholder substituted with the actual real-toolbox://... URI
+    the user clicked - it becomes sys.argv[1] in dispatch()."""
     if getattr(sys, "frozen", False):
-        command = f'"{sys.executable}" "%1"'
-    else:
-        command = f'"{sys.executable}" "{Path(__file__).resolve()}" "%1"'
+        return f'"{exe_path}" "%1"'
+    return f'"{sys.executable}" "{Path(__file__).resolve()}" "%1"'
 
+
+def _write_protocol_registration(command):
+    """Writes the actual registry keys that teach Windows real-toolbox://...
+    links should be handed to `command`. Writes under HKEY_CURRENT_USER (not
+    HKEY_CLASSES_ROOT/HKEY_LOCAL_MACHINE) deliberately - HKCU\\Software\\
+    Classes is honored by Windows for URI protocol handlers exactly like
+    HKCR is, but does NOT require administrator privileges to write to,
+    unlike HKCR/HKLM. This keeps the whole install process admin-free,
+    matching the "just download and double-click" experience described on
+    the web page."""
     key_path = r"Software\Classes\real-toolbox"
     with winreg.CreateKey(winreg.HKEY_CURRENT_USER, key_path) as key:
         # The (Default) value's exact text doesn't matter functionally, but
@@ -1315,6 +1309,92 @@ def register_protocol():
         winreg.SetValueEx(key, "URL Protocol", 0, winreg.REG_SZ, "")
     with winreg.CreateKey(winreg.HKEY_CURRENT_USER, key_path + r"\shell\open\command") as key:
         winreg.SetValueEx(key, "", 0, winreg.REG_SZ, command)
+
+
+def ensure_stable_launcher_location():
+    """If this frozen exe isn't already running from LAUNCHER_STABLE_PATH,
+    copy itself there and re-point the registered protocol at that copy.
+
+    Why this exists: register_protocol() used to always point Windows at
+    wherever sys.executable happened to be - in practice, a user's literal
+    Downloads folder, since that's where a browser saves a download and the
+    setup instructions say to double-click it right there. That is a
+    fragile permanent home for the one file every real-toolbox:// link on
+    the page depends on forever after: a user (or anyone else tidying up
+    that machine) later deleting what looks like a stray old installer out
+    of Downloads silently breaks EVERY tool launch, with no error visible
+    anywhere - this happened for real, on this project's own maintainer's
+    machine, and is what prompted this function to exist. APP_DIR (where
+    tools/installed.json/manifest_cache.json already live, and which
+    already has a supported override via --set-install-dir/
+    REAL_TOOLBOX_INSTALL_DIR) is a much safer home: it looks like it belongs
+    to something, unlike a bare exe sitting in Downloads.
+
+    Guards, in order:
+      - Not frozen (a plain `python launcher.py` dev run) - nothing to
+        relocate, and there is no "self" exe file to copy.
+      - REAL_TOOLBOX_INSTALL_DIR set - signals a local dev/test run (see
+        resolve_app_dir), and this function's whole job is to rewrite the
+        ONE SHARED, machine-wide HKCU registry key - doing that from a test
+        run would silently hijack the real, currently-working registration
+        on whatever machine the test happens to run on. Found this the hard
+        way while testing this very feature.
+      - Already running from LAUNCHER_STABLE_PATH - the common case for
+        every launch after the first successful relocation; nothing to do.
+
+    Entirely best-effort: any OSError (permission issue, disk full, APP_DIR
+    unreachable) is swallowed and simply tried again on the next launch -
+    this must never be the reason a tool launch fails.
+    """
+    if not getattr(sys, "frozen", False):
+        return
+    if os.environ.get("REAL_TOOLBOX_INSTALL_DIR"):
+        return
+    current = Path(sys.executable).resolve()
+    try:
+        if current == LAUNCHER_STABLE_PATH.resolve():
+            return
+        APP_DIR.mkdir(parents=True, exist_ok=True)
+        # Copy to a temp file first, then os.replace (atomic rename) onto
+        # the final name - never a window where LAUNCHER_STABLE_PATH exists
+        # but is empty/partial, unlike a naive delete-then-copy.
+        tmp_path = LAUNCHER_STABLE_PATH.with_name(LAUNCHER_STABLE_PATH.stem + ".new.exe")
+        shutil.copy2(current, tmp_path)
+        os.replace(tmp_path, LAUNCHER_STABLE_PATH)
+        _write_protocol_registration(_protocol_command_for(LAUNCHER_STABLE_PATH))
+    except OSError:
+        pass
+
+
+def register_protocol():
+    """The one-time setup step every user runs once (double-clicking the
+    downloaded exe with no arguments does this - see dispatch()) before any
+    real-toolbox:// link on the web page will do anything at all.
+
+    First relocates to LAUNCHER_STABLE_PATH if needed (see
+    ensure_stable_launcher_location) so the very first registration already
+    points at the stable, safe-from-cleanup location rather than wherever
+    the exe was double-clicked from - a brand new install is never exposed
+    to the Downloads-folder failure mode ensure_stable_launcher_location's
+    docstring describes, even for the short window before the next launch
+    would have caught it. Always (re)writes the registry regardless of
+    whether relocation actually did anything, unlike
+    ensure_stable_launcher_location's own opportunistic call from the
+    normal launch path - an explicit --register/double-click is the user
+    (or an installer) asking "make this work now", and should unconditionally
+    fix a corrupted or wrong existing registration, not skip writing just
+    because the file was already in place.
+
+    A dev/test run (not frozen, or REAL_TOOLBOX_INSTALL_DIR set) registers
+    against wherever it's actually running from instead, exactly like
+    before - see ensure_stable_launcher_location's guards.
+    """
+    ensure_stable_launcher_location()
+    if getattr(sys, "frozen", False) and not os.environ.get("REAL_TOOLBOX_INSTALL_DIR"):
+        target = LAUNCHER_STABLE_PATH
+    else:
+        target = Path(sys.executable).resolve()
+    _write_protocol_registration(_protocol_command_for(target))
     show_message("設定完成！之後在 MT Toolbox 網頁上點擊工具連結就會自動啟動。")
 
 
@@ -1422,9 +1502,13 @@ def dispatch():
         release_launch_lock(lock_file)
         # In the finally, not after the try/finally block - launch() raising
         # (a genuinely failed launch, or a deliberate SystemExit like "this
-        # tool isn't available yet") must not skip the self-update check;
-        # a self-update opportunity shouldn't depend on the requested tool
-        # having launched successfully.
+        # tool isn't available yet") must not skip the self-update/relocation
+        # opportunities below; neither should depend on the requested tool
+        # having launched successfully. Relocation checked first, though the
+        # order doesn't actually matter functionally - each operates on
+        # wherever sys.executable already is for THIS run regardless of what
+        # the other one does.
+        ensure_stable_launcher_location()
         maybe_self_update()
 
 
