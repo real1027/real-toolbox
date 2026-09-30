@@ -278,10 +278,17 @@ function footerContent(tool) {
 // wireLaunchFeedback's `a.launch-btn` click delegation and never trigger
 // launch behavior themselves.
 function reorderControls(tool, index, total) {
+  const earlierLabel = escapeHtml(t('index.card.moveEarlier'));
+  const laterLabel = escapeHtml(t('index.card.moveLater'));
+  // Both aria-label (for screen readers) AND title (for the native browser
+  // tooltip on hover) are set to the same text - aria-label alone gives
+  // sighted mouse users no visible hint at all about what an icon-only
+  // button does, which is exactly the "I can't tell what these buttons are
+  // for" feedback this was added to fix.
   return `
     <div class="card-reorder">
-      <button type="button" class="reorder-btn" data-tool-id="${escapeHtml(tool.id)}" data-dir="-1" ${index === 0 ? 'disabled' : ''} aria-label="${escapeHtml(t('index.card.moveEarlier'))}">${MOVE_EARLIER_ICON}</button>
-      <button type="button" class="reorder-btn" data-tool-id="${escapeHtml(tool.id)}" data-dir="1" ${index === total - 1 ? 'disabled' : ''} aria-label="${escapeHtml(t('index.card.moveLater'))}">${MOVE_LATER_ICON}</button>
+      <button type="button" class="reorder-btn" data-tool-id="${escapeHtml(tool.id)}" data-dir="-1" ${index === 0 ? 'disabled' : ''} aria-label="${earlierLabel}" title="${earlierLabel}">${MOVE_EARLIER_ICON}</button>
+      <button type="button" class="reorder-btn" data-tool-id="${escapeHtml(tool.id)}" data-dir="1" ${index === total - 1 ? 'disabled' : ''} aria-label="${laterLabel}" title="${laterLabel}">${MOVE_LATER_ICON}</button>
     </div>
   `;
 }
