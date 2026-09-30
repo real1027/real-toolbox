@@ -144,7 +144,7 @@ from pathlib import Path
 # below) - otherwise there was previously NO way for a user to ever find out
 # what version of the Launcher they were running at all, since nothing
 # printed it anywhere on its own.
-LAUNCHER_VERSION = "1.3.2"
+LAUNCHER_VERSION = "1.3.3"
 
 # --- Windows message-box helpers -------------------------------------------
 # There is no console (see module docstring), so these MB_* constants pick
@@ -518,12 +518,12 @@ def download_and_extract(tool, version_dir, progress=None):
     """Download tool["download_url"] to a temp zip next to version_dir, then
     extract it into version_dir and delete the zip.
 
-    version_dir is TOOLS_DIR/<tool_id>/<version> - see launch() for how
-    <version> is determined. Extraction targets that exact folder directly
-    (not some intermediate staging area) because launch() has already
-    deleted any previous version of this tool's folder before calling this
-    function - there is nothing pre-existing at version_dir to worry about
-    clobbering.
+    version_dir is wherever the caller wants this download extracted to -
+    see launch(), which always passes a fresh staging directory here (never
+    the tool's real, currently-in-use version folder directly), precisely
+    so a failed/partial download here can never corrupt or lose an existing
+    working install; launch() only replaces the real install with this
+    function's output after it has returned successfully.
 
     The `report` inner function is urllib's reporthook - it fires
     periodically during urlretrieve's download loop purely so `progress`
@@ -1180,38 +1180,94 @@ def launch(tool_id, sub_id=None):
     needs_download = version_changed or fingerprint_changed or not version_dir.exists()
 
     if needs_download:
+        # The already-installed version (if any), captured BEFORE anything
+        # on disk is touched - what launch() falls back to running if it
+        # turns out we can't actually reach the download source this time
+        # (see the OSError handling below). Note record["version"] can
+        # equal `version` here (e.g. needs_download was triggered only by
+        # fingerprint_changed) - in that case fallback_dir and version_dir
+        # are literally the same path, which is fine: it just means "the
+        # thing we'd fall back to IS the thing we were about to try to
+        # verify/refresh".
+        fallback_dir = TOOLS_DIR / tool_id / record["version"] if record.get("version") else None
+        has_fallback = fallback_dir is not None and fallback_dir.exists()
+
         progress = make_progress_window(tool_display_name(tool))
         try:
-            # Delete any previous version of this tool entirely first -
-            # simpler and safer than trying to reconcile old files with new
-            # ones in place (e.g. an old version's leftover file that the
-            # new version no longer ships would otherwise linger forever).
-            tool_dir = TOOLS_DIR / tool_id
-            if tool_dir.exists():
-                shutil.rmtree(tool_dir, ignore_errors=True)
+            # Downloaded and extracted into a fresh, separate staging
+            # directory FIRST - never directly into version_dir, and the
+            # existing install is never touched until this has fully
+            # succeeded. This ordering is deliberate and was a real, found-
+            # in-production bug when it was the other way around (delete
+            # first, download second): resolve_live_version() falls back to
+            # manifest.json's latest_version (documented as cosmetic-only,
+            # allowed to drift from what's truly installed) whenever it
+            # can't reach this tool's download host - which is exactly the
+            # same condition (offline / outside the internal network) that
+            # then makes the actual download fail too. So "the manifest's
+            # stale version number happens to differ from what's installed"
+            # plus "can't download" used to combine into: delete the
+            # perfectly good existing install, then fail to replace it,
+            # leaving the user with nothing and no way to recover offline -
+            # exactly backwards from what the offline-support feature
+            # promises.
+            staging_dir = TOOLS_DIR / tool_id / f".download-{version}"
+            if staging_dir.exists():
+                shutil.rmtree(staging_dir, ignore_errors=True)
             try:
-                download_and_extract(tool, version_dir, progress=progress)
+                download_and_extract(tool, staging_dir, progress=progress)
             except OSError as e:
-                # A raw URLError/socket traceback here is technically
-                # accurate but unhelpful to an end user - this is the one
-                # specific failure worth a plain-language explanation,
-                # since it's the direct answer to "why won't it launch": a
-                # fresh download/update genuinely requires reaching this
-                # tool's download host (typically the internal GitLab),
-                # which offline-manifest-caching (see load_manifest) cannot
-                # help with - that only covers *already-installed, unchanged*
-                # tools.
-                raise SystemExit(
-                    f"無法下載 '{tool_display_name(tool)}'：目前連不上下載來源"
-                    "（可能是離線，或不在內部網路內）。\n\n"
-                    "如果只是要執行已經裝過的版本，離線也可以用；"
-                    "但這次判斷需要重新下載或更新，離線/內網外無法完成。"
-                ) from e
-            # Record what was actually installed, using the *current* version
-            # and fingerprint (not necessarily what was in manifest.json),
-            # so the next launch's comparison is against ground truth.
-            state[tool_id] = {"version": version, "fingerprint": fingerprint}
-            save_state(state)
+                shutil.rmtree(staging_dir, ignore_errors=True)
+                if has_fallback:
+                    # Couldn't reach the download source to confirm/fetch an
+                    # update, but a working install already exists - use it
+                    # instead of blocking the user entirely. This IS the
+                    # offline-support feature: failing to confirm there's a
+                    # newer version must never be treated the same as
+                    # "there is no installed version at all".
+                    version_dir = fallback_dir
+                    version = record["version"]
+                else:
+                    # A raw URLError/socket traceback here is technically
+                    # accurate but unhelpful to an end user - this is the
+                    # one specific failure worth a plain-language
+                    # explanation, since it's the direct answer to "why
+                    # won't it launch": a fresh download genuinely requires
+                    # reaching this tool's download host (typically the
+                    # internal GitLab), and there is truly nothing already
+                    # installed to fall back to.
+                    raise SystemExit(
+                        f"無法下載 '{tool_display_name(tool)}'：目前連不上下載來源"
+                        "（可能是離線，或不在內部網路內）。\n\n"
+                        "如果只是要執行已經裝過的版本，離線也可以用；"
+                        "但這次判斷需要重新下載或更新，離線/內網外無法完成。"
+                    ) from e
+            else:
+                # Download+extract into staging_dir succeeded - only NOW is
+                # it safe to remove whatever was there before and move the
+                # freshly-downloaded version into its real place. Removing
+                # every other entry (not just a same-named old version_dir)
+                # matches the previous "wipe the whole tool_dir" behavior -
+                # simpler than reconciling old files the new version no
+                # longer ships.
+                tool_dir = TOOLS_DIR / tool_id
+                if tool_dir.exists():
+                    for entry in tool_dir.iterdir():
+                        if entry == staging_dir:
+                            continue
+                        if entry.is_dir():
+                            shutil.rmtree(entry, ignore_errors=True)
+                        else:
+                            entry.unlink(missing_ok=True)
+                if version_dir.exists():
+                    shutil.rmtree(version_dir, ignore_errors=True)
+                staging_dir.rename(version_dir)
+                # Record what was actually installed, using the *current*
+                # version and fingerprint (not necessarily what was in
+                # manifest.json), so the next launch's comparison is
+                # against ground truth.
+                state[tool_id] = {"version": version, "fingerprint": fingerprint}
+                save_state(state)
         finally:
             # Always close the progress window, even if the download/extract
             # raised - an exception here propagates up to main()'s top-level
