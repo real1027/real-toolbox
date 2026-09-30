@@ -811,6 +811,17 @@ GITHUB_LAUNCHER_ASSET_URL = "https://github.com/real1027/real-toolbox/releases/l
 LAUNCHER_UPDATE_CHECK_INTERVAL_SECONDS = 24 * 60 * 60
 
 
+def _version_tuple(version):
+    """Parses a "1.3.1"-style version string into (1, 3, 1) for numeric
+    comparison. Returns None for anything that doesn't look like a plain
+    dotted-integer version, so callers can treat "can't tell" the same as
+    "don't update" rather than guessing."""
+    try:
+        return tuple(int(part) for part in version.split("."))
+    except (ValueError, AttributeError):
+        return None
+
+
 def resolve_latest_launcher_version():
     """GitHub equivalent of resolve_live_version - HEAD request against
     GITHUB_LATEST_RELEASE_URL (deliberately NOT following the redirect, same
@@ -1006,7 +1017,20 @@ def maybe_self_update():
 
     try:
         latest = resolve_latest_launcher_version()
-        if latest is None or latest == LAUNCHER_VERSION:
+        if latest is None:
+            return
+        # Strictly-greater-than, not just "different" - found the hard way
+        # during testing: a dev build whose LAUNCHER_VERSION had been bumped
+        # locally but not yet published as a GitHub Release self-"updated"
+        # right back down to the still-current, older, published version,
+        # since the old check only asked "is this different from what I
+        # have", not "is this newer". A version string that doesn't parse
+        # as plain dotted integers is treated as "can't tell, don't
+        # update" (see _version_tuple) rather than falling back to the
+        # old, unsafe string inequality.
+        latest_tuple = _version_tuple(latest)
+        current_tuple = _version_tuple(LAUNCHER_VERSION)
+        if latest_tuple is None or current_tuple is None or latest_tuple <= current_tuple:
             return
 
         exe_path = Path(sys.executable).resolve()
