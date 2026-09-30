@@ -85,6 +85,23 @@
       "exe_name": "LogReviewTool.exe"
     },
     {
+      "id": "usb_com_lock",
+      "name": {
+        "zh": "USB COM Port 固定與鎖定工具",
+        "en": "USBComLock",
+        "vi": "USBComLock"
+      },
+      "icon": "usb",
+      "description": {
+        "zh": "產線用工具，將 USB-to-UART 裝置的 COM Port 依實體 USB 插孔固定，避免換 DUT 板時因硬體序號不同而跳號，導致自動化測試軟體抓不到裝置。",
+        "en": "A production-line tool that pins each USB-to-UART device's COM port to its physical USB socket, preventing the port number from shifting when swapping DUT boards with different hardware serial numbers - which would otherwise cause automated test software to lose track of the device.",
+        "vi": "Công cụ dùng trên dây chuyền sản xuất, cố định COM Port của thiết bị USB-to-UART theo đúng cổng USB vật lý, tránh tình trạng đổi board DUT có số serial phần cứng khác nhau làm COM Port bị đổi số, khiến phần mềm kiểm tra tự động không nhận được thiết bị."
+      },
+      "latest_version": "1.1.0",
+      "download_url": "http://10.118.53.32/tools/USBComLock/-/releases/permalink/latest/downloads/usb_com_lock.zip",
+      "exe_name": "USBComLock.exe"
+    },
+    {
       "id": "error_code_search_system",
       "name": {
         "zh": "Error Code 查詢系統",
