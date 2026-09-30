@@ -102,6 +102,18 @@
       "exe_name": "USBComLock.exe"
     },
     {
+      "id": "log_cpk_validator",
+      "name": "Log CPK Validator",
+      "icon": "file-check",
+      "description": {
+        "zh": "檢查產線測試 log 能不能跑出 CPK。合格顯示 OK，不合格顯示 NG 並告訴你問題在第幾行。log 只在這台電腦的瀏覽器裡檢查，不會上傳到任何地方。",
+        "en": "Checks whether a production-test log can produce a CPK. A pass shows OK; a failure shows NG with the exact line number of the problem. Everything runs locally in your browser - the log is never uploaded anywhere.",
+        "vi": "Kiểm tra xem log kiểm tra sản xuất có tính ra được CPK hay không. Đạt hiển thị OK, không đạt hiển thị NG kèm số dòng gặp vấn đề. Log chỉ được kiểm tra ngay trong trình duyệt của máy này, không tải lên bất kỳ đâu."
+      },
+      "type": "link",
+      "url": "https://lobbster1234-ai.github.io/log-cpk-validator/"
+    },
+    {
       "id": "error_code_search_system",
       "name": {
         "zh": "Error Code 查詢系統",
