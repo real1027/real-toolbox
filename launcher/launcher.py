@@ -367,6 +367,27 @@ def find_tool(manifest, tool_id):
     raise SystemExit(f"在工具清單裡找不到 '{tool_id}'")
 
 
+def tool_display_name(tool):
+    """Returns a single string for a tool's "name" field, for use in the
+    Launcher's own message boxes/progress window. manifest.json's "name" may
+    be a plain string (used as-is, the original format) or a per-language
+    object like {"zh": ..., "en": ..., "vi": ...} - added later for the web
+    page's trilingual card display, see assets/app.js's localize() - and the
+    Launcher, unlike the page, has no language switcher of its own. Without
+    this, an f-string embedding a dict directly renders its Python repr
+    (e.g. "{'zh': '...', 'en': '...', 'vi': '...'}"), which is exactly what
+    a user reported seeing in the download-progress message - not a
+    trilingual message, just a raw dict dumped into a Chinese sentence.
+    English is preferred when there's a choice (English is a Windows
+    message box's least-worst common denominator here, and what the user
+    asked for specifically), falling back to Chinese, then whatever
+    language happens to be present."""
+    name = tool.get("name", "")
+    if isinstance(name, dict):
+        return name.get("en") or name.get("zh") or next(iter(name.values()), "")
+    return name
+
+
 class ProgressWindow:
     """A small always-on-top window shown ONLY while an actual download/
     extract is happening - i.e. a cold install, or a version/fingerprint
@@ -508,11 +529,11 @@ def download_and_extract(tool, version_dir, progress=None):
             progress.pump()
 
     if progress:
-        progress.set_status(f"正在下載 {tool['name']} ...")
+        progress.set_status(f"正在下載 {tool_display_name(tool)} ...")
     urllib.request.urlretrieve(tool["download_url"], zip_path, reporthook=report)
 
     if progress:
-        progress.set_status(f"正在解壓 {tool['name']} ...")
+        progress.set_status(f"正在解壓 {tool_display_name(tool)} ...")
         progress.pump()
     with zipfile.ZipFile(zip_path, "r") as zf:
         zf.extractall(version_dir)
@@ -1087,7 +1108,7 @@ def launch(tool_id, sub_id=None):
     manifest = load_manifest(MANIFEST_URL)
     tool = find_tool(manifest, tool_id)
     if tool.get("status") == "coming_soon":
-        raise SystemExit(f"'{tool['name']}' 還沒上架，敬請期待。")
+        raise SystemExit(f"'{tool_display_name(tool)}' 還沒上架，敬請期待。")
     exe_name = resolve_exe_name(tool, sub_id)
 
     # Prefer the live-resolved version (self-healing - see
@@ -1124,7 +1145,7 @@ def launch(tool_id, sub_id=None):
     needs_download = version_changed or fingerprint_changed or not version_dir.exists()
 
     if needs_download:
-        progress = make_progress_window(tool["name"])
+        progress = make_progress_window(tool_display_name(tool))
         try:
             # Delete any previous version of this tool entirely first -
             # simpler and safer than trying to reconcile old files with new
@@ -1146,7 +1167,7 @@ def launch(tool_id, sub_id=None):
                 # help with - that only covers *already-installed, unchanged*
                 # tools.
                 raise SystemExit(
-                    f"無法下載 '{tool['name']}'：目前連不上下載來源"
+                    f"無法下載 '{tool_display_name(tool)}'：目前連不上下載來源"
                     "（可能是離線，或不在內部網路內）。\n\n"
                     "如果只是要執行已經裝過的版本，離線也可以用；"
                     "但這次判斷需要重新下載或更新，離線/內網外無法完成。"
