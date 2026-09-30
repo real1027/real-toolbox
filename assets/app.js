@@ -14,6 +14,11 @@
 //      remembering (via localStorage, since a static page cannot query the
 //      local filesystem for whether the Launcher is actually installed) that
 //      the user has already dealt with it.
+//   4. Lets the user reorder cards with per-card ‹/› buttons (see
+//      reorderControls/orderedTools/moveCard), persisted to localStorage -
+//      a per-browser preference, not synced anywhere, similar in spirit to
+//      rearranging apps on a phone home screen but without real drag-and-
+//      drop's touch/pointer-tracking complexity.
 //
 // There is no build step - this is loaded directly via <script src="assets/
 // app.js"> in index.html, so it must run in every evergreen browser as-is.
@@ -56,6 +61,8 @@ const ICONS = {
   search: '<path d="m21 21-4.34-4.34" /><circle cx="11" cy="11" r="8" />',
   'circuit-board': '<rect width="18" height="18" x="3" y="3" rx="2" /><path d="M11 9h4a2 2 0 0 0 2-2V3" /><circle cx="9" cy="9" r="2" /><path d="M7 21v-4a2 2 0 0 1 2-2h4" /><circle cx="15" cy="15" r="2" />',
   usb: '<circle cx="10" cy="7" r="1" /><circle cx="4" cy="20" r="1" /><path d="M4.7 19.3 19 5" /><path d="m21 3-3 1 2 2Z" /><path d="M9.26 7.68 5 12l2 5" /><path d="m10 14 5 2 3.5-3.5" /><path d="m18 12 1-1 1 1-1 1Z" />',
+  'chevron-left': '<path d="m15 18-6-6 6-6" />',
+  'chevron-right': '<path d="m9 18 6-6-6-6" />',
 };
 
 // localStorage key used to remember "the user already dismissed the setup
@@ -63,6 +70,72 @@ const ICONS = {
 // colliding with an unrelated key some other script on the same origin might
 // set (not a real risk on GitHub Pages, but costs nothing to be specific).
 const LAUNCHER_SETUP_KEY = 'mt_toolbox_launcher_ready';
+
+// localStorage key for the user's own custom card order (see orderedTools/
+// moveCard below). This is a per-browser preference, like the language
+// choice - there is no account system on this static page, so it is never
+// synced across devices or shared with anyone else viewing the page.
+const CARD_ORDER_KEY = 'mt_toolbox_card_order';
+
+// Reads the user's saved card order (an array of tool ids, earliest first)
+// from localStorage. Returns [] (not null) on anything unexpected - missing
+// key, corrupt JSON, or localStorage being unavailable (e.g. a private
+// window that throws on access) - so callers never need their own fallback
+// branch for "no custom order yet".
+function loadCardOrder() {
+  try {
+    const raw = localStorage.getItem(CARD_ORDER_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCardOrder(tools) {
+  try {
+    localStorage.setItem(CARD_ORDER_KEY, JSON.stringify(tools.map((tool) => tool.id)));
+  } catch {
+    // Best-effort only - if localStorage is unavailable the reorder buttons
+    // still work for the rest of this page view, they just won't persist.
+  }
+}
+
+// Applies the saved order (if any) to the manifest's tool list. A tool id
+// from a stale saved order that no longer exists in manifest.json is simply
+// dropped; a tool in manifest.json that isn't in the saved order yet (a
+// brand-new tool onboarded after the user last reordered) is appended at
+// the end, in its normal manifest position relative to other new tools -
+// so a newly-added tool always shows up rather than silently vanishing
+// because it's missing from an old saved order.
+function orderedTools(tools) {
+  const order = loadCardOrder();
+  if (!order.length) return tools;
+  const byId = new Map(tools.map((tool) => [tool.id, tool]));
+  const ordered = order.map((id) => byId.get(id)).filter(Boolean);
+  const seen = new Set(ordered.map((tool) => tool.id));
+  for (const tool of tools) {
+    if (!seen.has(tool.id)) ordered.push(tool);
+  }
+  return ordered;
+}
+
+// Swaps a card with its immediate neighbor (dir -1 = earlier, +1 = later)
+// and persists the result. Operates on the currently-displayed order
+// (orderedTools(cachedTools)), not the raw manifest order, so repeated
+// moves compose correctly. A no-op at either end of the list (idx/swapWith
+// out of range) rather than wrapping around - the reorder buttons are
+// already disabled at the ends (see toolCard) but this guards direct calls
+// too.
+function moveCard(id, dir) {
+  const tools = orderedTools(cachedTools);
+  const idx = tools.findIndex((tool) => tool.id === id);
+  const swapWith = idx + dir;
+  if (idx === -1 || swapWith < 0 || swapWith >= tools.length) return;
+  [tools[idx], tools[swapWith]] = [tools[swapWith], tools[idx]];
+  saveCardOrder(tools);
+  renderCards();
+}
 
 // Builds a standalone <svg>...</svg> string for one of the path/shape
 // fragments in ICONS. Returns null (not a broken empty string) for an
@@ -79,6 +152,8 @@ function svgIcon(name, size = 16, strokeWidth = 2) {
 // the exact same size - no need to regenerate identical markup per card.
 const LAUNCH_ICON = svgIcon('play', 14);
 const EXTERNAL_ICON = svgIcon('external-link', 14);
+const MOVE_EARLIER_ICON = svgIcon('chevron-left', 14);
+const MOVE_LATER_ICON = svgIcon('chevron-right', 14);
 
 // Manual HTML-escaping (as opposed to e.g. always using textContent) because
 // several places below need to mix escaped user/manifest-provided text with
@@ -192,17 +267,38 @@ function footerContent(tool) {
   return launchButton(`real-toolbox://launch/${encodeURIComponent(tool.id)}`, t('index.card.launch'));
 }
 
+// The pair of ‹/› buttons in a card's top-right corner that let the user
+// reorder cards (see orderedTools/moveCard) - a simple, phone-home-screen-
+// like customization, without the complexity of real drag-and-drop (no
+// pointer-tracking, no touch-drag edge cases). `index`/`total` (this card's
+// position in the currently-displayed order and the total card count) drive
+// which end buttons are disabled - the first card can't move earlier, the
+// last can't move later. Plain <button type="button"> elements, not
+// launch-btn <a> tags, so they're naturally excluded from
+// wireLaunchFeedback's `a.launch-btn` click delegation and never trigger
+// launch behavior themselves.
+function reorderControls(tool, index, total) {
+  return `
+    <div class="card-reorder">
+      <button type="button" class="reorder-btn" data-tool-id="${escapeHtml(tool.id)}" data-dir="-1" ${index === 0 ? 'disabled' : ''} aria-label="${escapeHtml(t('index.card.moveEarlier'))}">${MOVE_EARLIER_ICON}</button>
+      <button type="button" class="reorder-btn" data-tool-id="${escapeHtml(tool.id)}" data-dir="1" ${index === total - 1 ? 'disabled' : ''} aria-label="${escapeHtml(t('index.card.moveLater'))}">${MOVE_LATER_ICON}</button>
+    </div>
+  `;
+}
+
 // Builds one <article class="card"> DOM element for a single manifest.json
-// tool entry - called once per entry by loadTools(). Uses innerHTML (rather
-// than building child elements one at a time) for simplicity, since every
-// piece of untrusted text going into it has already been escaped by
-// cardArt/escapeHtml/footerContent before reaching this template.
+// tool entry - called once per entry by loadTools()/renderCards(). Uses
+// innerHTML (rather than building child elements one at a time) for
+// simplicity, since every piece of untrusted text going into it has already
+// been escaped by cardArt/escapeHtml/footerContent before reaching this
+// template. `index`/`total` are this card's position in the currently-
+// displayed (possibly user-reordered) list - see reorderControls.
 //
 // The "is-coming-soon" class (which style.css uses to dim the whole card and
 // disable its hover-lift animation) is applied here at the card level, not
 // just on the button, so the entire card visually reads as "not available
 // yet" rather than only the button looking different.
-function toolCard(tool) {
+function toolCard(tool, index, total) {
   const card = document.createElement('article');
   card.className = 'card' + (tool.status === 'coming_soon' ? ' is-coming-soon' : '');
   card.innerHTML = `
@@ -210,6 +306,7 @@ function toolCard(tool) {
     <div class="card-body">
       <div class="card-top">
         <h3 class="card-title">${escapeHtml(localize(tool.name))}</h3>
+        ${reorderControls(tool, index, total)}
       </div>
       ${tool.description ? `<p class="card-desc">${escapeHtml(localize(tool.description))}</p>` : ''}
       <div class="card-footer">
@@ -417,9 +514,23 @@ function renderCards() {
     return;
   }
   document.getElementById('empty-state').hidden = true;
-  for (const tool of cachedTools) {
-    grid.appendChild(toolCard(tool));
-  }
+  const tools = orderedTools(cachedTools);
+  tools.forEach((tool, index) => {
+    grid.appendChild(toolCard(tool, index, tools.length));
+  });
+}
+
+// Delegated click handler for every card's ‹/› reorder buttons (see
+// reorderControls) - one listener on the grid instead of one per button,
+// since renderCards() tears down and rebuilds every card's markup on every
+// reorder/language change anyway.
+function wireCardReorder() {
+  const grid = document.getElementById('tool-grid');
+  grid.addEventListener('click', (e) => {
+    const btn = e.target.closest('button.reorder-btn');
+    if (!btn || btn.disabled) return;
+    moveCard(btn.dataset.toolId, Number(btn.dataset.dir));
+  });
 }
 
 async function loadTools() {
@@ -444,6 +555,7 @@ async function loadTools() {
 setupLauncherReminder();
 hideMascotIfMissing();
 wireLaunchFeedback();
+wireCardReorder();
 loadTools();
 
 // Re-render the tool cards (see renderCards) whenever the language switcher

@@ -396,6 +396,38 @@ code {
   font-size: 1.02rem;
 }
 
+/* The ‹/› card-reorder buttons - deliberately quiet (muted color, no
+   border/background until hover) so they read as a minor utility, not a
+   primary action competing with the card title/launch button. */
+.card-reorder {
+  display: flex;
+  gap: 0.15rem;
+  flex-shrink: 0;
+}
+
+.reorder-btn {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.reorder-btn:hover:not(:disabled) {
+  background: var(--bg-alt);
+  color: var(--accent-hover);
+}
+
+.reorder-btn:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
 .card-desc {
   margin: 0;
   color: var(--muted);
