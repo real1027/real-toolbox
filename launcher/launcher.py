@@ -144,7 +144,7 @@ from pathlib import Path
 # below) - otherwise there was previously NO way for a user to ever find out
 # what version of the Launcher they were running at all, since nothing
 # printed it anywhere on its own.
-LAUNCHER_VERSION = "1.3.3"
+LAUNCHER_VERSION = "1.3.4"
 
 # --- Windows message-box helpers -------------------------------------------
 # There is no console (see module docstring), so these MB_* constants pick
@@ -272,6 +272,13 @@ DEFAULT_MANIFEST_URL = "https://real1027.github.io/real-toolbox/manifest.json"
 # still sitting on disk, not yet pushed to GitHub Pages) without needing to
 # edit this file.
 MANIFEST_URL = os.environ.get("REAL_TOOLBOX_MANIFEST_URL", DEFAULT_MANIFEST_URL)
+# Mirror of the same manifest.json on the intranet GitLab, tried when the
+# GitHub copy can't be fetched. Plain http on purpose: some intranet machines
+# sit behind a proxy that re-signs HTTPS with a corporate CA that Python
+# doesn't trust (CERTIFICATE_VERIFY_FAILED), and GitHub force-redirects http
+# to https, so GitHub alone can never work there. Keep in sync with GitHub
+# (push to both remotes).
+FALLBACK_MANIFEST_URL = "http://10.118.53.32/tools/real-toolbox/-/raw/main/manifest.json"
 
 # A copy of the last successfully-fetched manifest.json, kept purely so a
 # machine with no internet at all (a common real scenario on a factory
@@ -304,10 +311,27 @@ def load_manifest(manifest_url):
     very first use of MT Toolbox genuinely does require being online.
     """
     if manifest_url.startswith("http://") or manifest_url.startswith("https://"):
-        try:
-            with urllib.request.urlopen(manifest_url, timeout=10) as resp:
-                raw = resp.read()
-            manifest = json.loads(raw)
+        # Only the built-in default gets a fallback; an explicit
+        # REAL_TOOLBOX_MANIFEST_URL means "use exactly this".
+        candidates = [manifest_url]
+        if manifest_url == DEFAULT_MANIFEST_URL:
+            candidates.append(FALLBACK_MANIFEST_URL)
+        failures = []
+        for url in candidates:
+            try:
+                with urllib.request.urlopen(url, timeout=10) as resp:
+                    raw = resp.read()
+                manifest = json.loads(raw)
+            except (OSError, ValueError) as e:
+                # ValueError covers a response that isn't valid JSON (e.g. a
+                # proxy/captive-portal HTML page returned instead of the file).
+                # Record the real cause: "can't connect" alone can't
+                # distinguish DNS failure, proxy auth, TLS certificate errors,
+                # or bad content.
+                reason = f"{type(e).__name__}: {e}"
+                dbg(f"load_manifest failed for {url}: {reason}")
+                failures.append(f"{url}\n  {reason}")
+                continue
             try:
                 APP_DIR.mkdir(parents=True, exist_ok=True)
                 MANIFEST_CACHE_FILE.write_bytes(raw)
@@ -317,14 +341,14 @@ def load_manifest(manifest_url):
                 # perfectly good live fetch into a failure.
                 pass
             return manifest
-        except OSError:
-            if MANIFEST_CACHE_FILE.exists():
-                return json.loads(MANIFEST_CACHE_FILE.read_text(encoding="utf-8"))
-            raise SystemExit(
-                "無法連線取得工具清單，而且這台機器上沒有先前成功快取過的清單可用。\n\n"
-                "請確認網路連線；如果這是這台機器第一次使用 MT Toolbox，"
-                "離線環境下沒辦法完成第一次啟動（至少需要成功連線一次）。"
-            )
+        if MANIFEST_CACHE_FILE.exists():
+            return json.loads(MANIFEST_CACHE_FILE.read_text(encoding="utf-8"))
+        raise SystemExit(
+            "無法連線取得工具清單，而且這台機器上沒有先前成功快取過的清單可用。\n\n"
+            "請確認網路連線；如果這是這台機器第一次使用 MT Toolbox，"
+            "離線環境下沒辦法完成第一次啟動（至少需要成功連線一次）。\n\n"
+            "嘗試過的來源與錯誤原因：\n" + "\n".join(failures)
+        )
     with open(manifest_url, "r", encoding="utf-8") as f:
         return json.load(f)
 

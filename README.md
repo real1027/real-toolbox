@@ -258,4 +258,16 @@ python -m PyInstaller --onefile --windowed --name real-toolbox-launcher launcher
 - `REAL_TOOLBOX_MANIFEST_URL`：覆寫 manifest.json 來源（預設是線上網址），可以指向本機的檔案路徑
 - `REAL_TOOLBOX_INSTALL_DIR`：覆寫安裝路徑（預設是 `D:\___ARC_MT_TOOLS___`），優先權高於 `--set-install-dir` 寫的 config
 
+### 內網備用清單（兩邊都要同步）
+
+部分內網電腦的 proxy 會對 HTTPS 重新簽發憑證，Python 不信任它，連 GitHub 會報 `CERTIFICATE_VERIFY_FAILED`（GitHub 又會把 http 強制轉成 https，所以沒辦法改走 http）。因此 Launcher（v1.3.4 起）抓 manifest 時，GitHub 失敗會自動改抓內網 GitLab 上的同一份：`http://10.118.53.32/tools/real-toolbox/-/raw/main/manifest.json`。
+
+**所以每次改完都要推到兩邊**，否則內網看到的清單會是舊的：
+
+```bash
+git push origin main && git push gitlab main
+```
+
+（`gitlab` remote 是 `http://10.118.53.32/tools/real-toolbox.git`。）如果用 `REAL_TOOLBOX_MANIFEST_URL` 指定了來源，就只會用那個來源，不會再退回備用網址。
+
 **開發時的一個重要提醒**：`--register` 指令會把 `real-toolbox://` 協定指向「當下正在執行的那個 exe/腳本」，如果在同一台機器上反覆對開發用的版本執行 `--register` 測試，會把這台機器上真正在使用的註冊值覆蓋掉（開發過程中真的發生過這個問題，導致一次「SFIS Emulator 突然開啟不了」的誤報）。在別人也在正常使用同一台機器的情況下測試 `--register`，測完記得幫忙重新指回正式版的 Launcher。
